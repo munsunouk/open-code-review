@@ -361,15 +361,15 @@ cursor-plugin marketplace add .
 @Open Code Review review and fix high-confidence issues
 ```
 
-这会注册 host-agent review skill，由 Cursor agent 使用 `ocr agent ...` workflow：
+这会注册一个 Cursor skill：OCR 作为确定性的 review data plane，Cursor 负责 review reasoning：
 
 ```bash
-ocr agent prepare --format json
+ocr agent prepare --format json --output /tmp/bundle.json
 ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
 ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-此集成不会初始化 OCR LLM backend。仅在需要外部 LLM workflow 时使用 `ocr review` 和 `ocr scan`。
+此路径不会初始化 OCR 的 LLM backend。OCR 本身仍需要按照 CLI setup 部分安装 `ocr` CLI。仅在需要外部 LLM workflow 时使用 `ocr review` 和 `ocr scan`。
 
 #### 方式五：直接复制命令文件
 
@@ -391,7 +391,7 @@ curl -o ~/.claude/commands/open-code-review.md \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/plugins/open-code-review/commands/review.md
 ```
 
-> **前置条件**：所有集成方式都需要安装 `ocr` CLI。native `ocr review` 和 `ocr scan` 额外需要配置 LLM。参见上方[安装](#安装)和[配置 LLM](#1-配置-llm)。
+> **前置条件**：所有集成方式都需要 `ocr` CLI。Native OCR LLM workflow 还需要 LLM provider；使用 `ocr agent` 的 Codex 和 Cursor agent workflow 不需要。参见上方[安装](#安装)和[配置 LLM](#1-配置-llm)。
 
 ### CI/CD 集成
 

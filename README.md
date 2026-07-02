@@ -333,7 +333,7 @@ The host-agnostic command surface is `ocr agent ...`; Codex is the first adapter
 using that shared deterministic layer:
 
 ```bash
-ocr agent prepare --format json
+ocr agent prepare --format json --output /tmp/bundle.json
 ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
 ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
@@ -372,15 +372,17 @@ After installation, invoke it in Cursor:
 @Open Code Review review and fix high-confidence issues
 ```
 
-This registers a Cursor skill for the host-agent workflow:
+This registers a Cursor skill that uses OCR as the deterministic review data
+plane while Cursor performs the review reasoning:
 
 ```bash
-ocr agent prepare --format json
+ocr agent prepare --format json --output /tmp/bundle.json
 ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
 ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-This integration does not initialize OCR's LLM backend. Use native `ocr review` only when you explicitly want OCR's external-LLM workflow.
+This path does not initialize OCR's LLM backend. OCR itself still requires the
+`ocr` CLI to be installed as described in the CLI setup section. Use native `ocr review` only when you explicitly want OCR's external-LLM workflow.
 
 #### Option 5: Copy the Command File Directly
 
@@ -402,7 +404,7 @@ curl -o ~/.claude/commands/open-code-review.md \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/plugins/open-code-review/commands/review.md
 ```
 
-> **Prerequisite**: All integration methods require the `ocr` CLI to be installed. Native `ocr review` and `ocr scan` additionally require an LLM configuration. See [Install](#install) and [Configure LLM](#1-configure-llm) above.
+> **Prerequisite**: All integration methods require the `ocr` CLI. Native OCR LLM workflows also require an LLM provider; Codex and Cursor agent workflows that use `ocr agent` do not. See [Install](#install) and [Configure LLM](#1-configure-llm) above.
 
 ### CI/CD Integration
 

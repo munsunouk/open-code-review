@@ -2,7 +2,7 @@
   "name": "open-code-review",
   "displayName": "Open Code Review",
   "version": "2.0.0",
-  "description": "Host-agent code reviews with OCR deterministic bundles, validation, context tooling, and reporting. Native ocr review/scan remain available when an external LLM workflow is desired.",
+  "description": "Cursor-led code reviews using OCR deterministic review bundles, target-aware context, validation, and reports.",
   "author": {
     "name": "Alibaba"
   },
@@ -23,5 +23,5 @@
     "quality",
     "automation"
   ],
-  "skills": "../skills/"
+  "skills": "../cursor-skills/"
 }

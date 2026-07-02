@@ -363,15 +363,15 @@ cursor-plugin marketplace add .
 @Open Code Review review and fix high-confidence issues
 ```
 
-Это зарегистрирует host-agent review skill; Cursor agent использует workflow `ocr agent ...`:
+Это зарегистрирует Cursor-скилл, где OCR выступает детерминированным review data plane, а Cursor выполняет review reasoning:
 
 ```bash
-ocr agent prepare --format json
+ocr agent prepare --format json --output /tmp/bundle.json
 ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
 ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-Интеграция не инициализирует LLM backend OCR. `ocr review` и `ocr scan` — только при явном запросе внешнего LLM workflow.
+Этот путь не инициализирует LLM-бэкенд OCR. Самому OCR по-прежнему нужен установленный CLI `ocr`, как описано в разделе про настройку CLI. `ocr review` и `ocr scan` — только при явном запросе внешнего LLM workflow.
 
 #### Вариант 5: просто скопировать файл команды
 
@@ -393,7 +393,7 @@ curl -o ~/.claude/commands/open-code-review.md \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/plugins/open-code-review/commands/review.md
 ```
 
-> **Требование**: для всех способов интеграции необходим установленный CLI `ocr`. Native `ocr review` и `ocr scan` дополнительно требуют настроенную LLM. См. разделы [Установка](#установка) и [Настройте LLM](#быстрый-старт) выше.
+> **Требование**: для всех способов интеграции нужен CLI `ocr`. Для native OCR LLM workflow также нужен LLM provider; для Codex и Cursor agent workflow, использующих `ocr agent`, он не нужен. См. разделы [Установка](#установка) и [Настройте LLM](#быстрый-старт) выше.
 
 ### Интеграция с CI/CD
 

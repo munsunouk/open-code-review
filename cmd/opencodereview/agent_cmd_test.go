@@ -991,6 +991,108 @@ func TestAgentSkillsUseHostAgentWorkflow(t *testing.T) {
 	}
 }
 
+func TestCursorPluginUsesAgentWorkflow(t *testing.T) {
+	repositoryRoot := filepath.Clean(filepath.Join("..", ".."))
+	manifestPath := filepath.Join(repositoryRoot, "plugins", "open-code-review", ".cursor-plugin", "plugin.json")
+	manifest, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", manifestPath, err)
+	}
+	manifestText := string(manifest)
+	if !strings.Contains(manifestText, "Cursor-led") ||
+		!strings.Contains(manifestText, "deterministic review bundles") {
+		t.Errorf("%s does not describe Cursor agent workflow", manifestPath)
+	}
+	var manifestData struct {
+		Skills string `json:"skills"`
+	}
+	if err := json.Unmarshal(manifest, &manifestData); err != nil {
+		t.Fatalf("decode %s: %v", manifestPath, err)
+	}
+	skillPath := filepath.Join(
+		filepath.Dir(manifestPath),
+		manifestData.Skills,
+		"open-code-review",
+		"SKILL.md",
+	)
+	skill, err := os.ReadFile(skillPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", skillPath, err)
+	}
+	skillText := string(skill)
+	for _, fragment := range []string{
+		"Cursor owns the review",
+		"Cursor performs planning",
+		"ocr agent prepare",
+		"--output <bundle.json>",
+		"--output <validation.json>",
+	} {
+		if !strings.Contains(skillText, fragment) {
+			t.Errorf("%s missing %q", skillPath, fragment)
+		}
+	}
+	for _, forbidden := range []string{
+		"Codex owns the review",
+		"Codex performs planning",
+	} {
+		if strings.Contains(skillText, forbidden) {
+			t.Errorf("%s contains Codex-specific instruction %q", skillPath, forbidden)
+		}
+	}
+	readmePath := filepath.Join(repositoryRoot, "README.md")
+	readme, err := os.ReadFile(readmePath)
+	if err != nil {
+		t.Fatalf("read %s: %v", readmePath, err)
+	}
+	readmeText := string(readme)
+	for _, fragment := range []string{
+		"Codex and Cursor agent workflows",
+		"use `ocr agent` do not",
+	} {
+		if !strings.Contains(readmeText, fragment) {
+			t.Errorf("%s missing %q", readmePath, fragment)
+		}
+	}
+	if strings.Contains(readmeText, "All integration methods require the `ocr` CLI to be installed and an LLM configured") {
+		t.Errorf("%s still requires an LLM for all integrations", readmePath)
+	}
+	for _, path := range []string{
+		filepath.Join(repositoryRoot, "README.ko-KR.md"),
+		filepath.Join(repositoryRoot, "README.zh-CN.md"),
+		filepath.Join(repositoryRoot, "README.ja-JP.md"),
+		filepath.Join(repositoryRoot, "README.ru-RU.md"),
+	} {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		text := string(content)
+		for _, fragment := range []string{
+			"ocr agent prepare --format json --output /tmp/bundle.json",
+			"ocr agent validate-comments",
+			"ocr agent report",
+			"ocr agent",
+		} {
+			if !strings.Contains(text, fragment) {
+				t.Errorf("%s Cursor section missing %q", path, fragment)
+			}
+		}
+		if strings.Count(text, "ocr review --audience agent") > 1 {
+			t.Errorf("%s still uses legacy OCR review command outside the existing Codex section", path)
+		}
+		for _, forbidden := range []string{
+			"모든 통합 방식은 `ocr` CLI가 설치되어 있고 LLM이 설정되어 있어야 합니다",
+			"所有集成方式都需要安装 `ocr` CLI 并配置 LLM",
+			"すべての統合方法において、`ocr` CLIのインストールとLLMの設定が必要です",
+			"для всех способов интеграции необходим установленный CLI `ocr` и настроенная LLM",
+		} {
+			if strings.Contains(text, forbidden) {
+				t.Errorf("%s still requires LLM setup for all integrations", path)
+			}
+		}
+	}
+}
+
 func TestAgentValidateCommentsFailsWhenInvalid(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")

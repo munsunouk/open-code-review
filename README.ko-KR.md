@@ -363,15 +363,15 @@ cursor-plugin marketplace add .
 @Open Code Review review and fix high-confidence issues
 ```
 
-이 plugin은 host-agent review skill을 등록합니다. Cursor agent가 `ocr agent ...` workflow를 사용합니다.
+이 plugin은 OCR을 deterministic review data plane으로 사용하고 Cursor가 review reasoning을 수행하는 Cursor skill을 등록합니다:
 
 ```bash
-ocr agent prepare --format json
+ocr agent prepare --format json --output /tmp/bundle.json
 ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
 ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-이 통합은 OCR LLM backend를 초기화하지 않습니다. native `ocr review`/`ocr scan`은 외부 LLM workflow가 필요할 때만 사용합니다.
+이 경로는 OCR의 LLM backend를 초기화하지 않습니다. OCR 자체는 CLI 설정 섹션에 설명된 대로 `ocr` CLI 설치가 필요합니다. native `ocr review`/`ocr scan`은 외부 LLM workflow가 필요할 때만 사용합니다.
 
 #### Option 5: Command 파일 직접 복사
 
@@ -393,7 +393,7 @@ curl -o ~/.claude/commands/open-code-review.md \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/plugins/open-code-review/commands/review.md
 ```
 
-> **전제 조건**: 모든 통합 방식은 `ocr` CLI 설치가 필요합니다. native `ocr review`/`ocr scan`은 추가로 LLM 설정이 필요합니다. 위의 [설치](#설치)와 [LLM 설정](#1-llm-설정)을 참고하세요.
+> **전제 조건**: 모든 통합 방식에는 `ocr` CLI가 필요합니다. Native OCR LLM workflow에는 LLM provider도 필요하지만, `ocr agent`를 사용하는 Codex와 Cursor agent workflow에는 필요하지 않습니다. 위의 [설치](#설치)와 [LLM 설정](#1-llm-설정)을 참고하세요.
 
 ### CI/CD 통합
 
