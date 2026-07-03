@@ -84,11 +84,16 @@ func TestLoadScanManifestRejectsTamperedNestedBundleID(t *testing.T) {
 	bundle := validIdentifiedBundle(t)
 	bundle.Summary.TotalFiles = 999
 	manifest := &ScanManifest{
-		SchemaVersion: ScanManifestSchemaVersion,
-		TargetHash:    "sha256:target",
-		BatchStrategy: "none",
-		BatchSize:     1,
-		Bundles:       []Bundle{*bundle},
+		SchemaVersion:   ScanManifestSchemaVersion,
+		Root:            "/tmp/repo",
+		TargetHash:      "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		BatchStrategy:   "none",
+		BatchSize:       1,
+		EstimatedTokens: 0,
+		Summary:         bundle.Summary,
+		Partial:         false,
+		SkippedFiles:    []ScanSkippedFile{},
+		Bundles:         []Bundle{*bundle},
 	}
 	manifestID, err := computeManifestID(manifest)
 	if err != nil {
@@ -201,11 +206,25 @@ func validationBundle() *Bundle {
 	return &Bundle{
 		SchemaVersion: BundleSchemaVersion,
 		BundleID:      "sha256:bundle",
-		Target:        Target{Mode: TargetRange, HeadSHA: "0123456789abcdef"},
+		Target: Target{
+			Mode:       TargetRange,
+			HeadSHA:    "0123456789abcdef",
+			DiffSHA256: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+		},
+		Summary:       Summary{TotalFiles: 1, ReviewableFiles: 1},
+		Rules: map[string]Rule{
+			"rule-1": {Source: "system", Pattern: "**/*.go", Content: "Review Go."},
+		},
 		Files: []File{{
-			Path:       "main.go",
-			Reviewable: true,
-			Hunks:      []Hunk{{NewStart: 3, NewCount: 2}},
+			Path:          "main.go",
+			OldPath:       "main.go",
+			Status:        "modified",
+			Reviewable:    true,
+			Insertions:    1,
+			ContentSHA256: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			RuleID:        "rule-1",
+			Patch:         "@@",
+			Hunks:         []Hunk{{NewStart: 3, NewCount: 2}},
 		}},
 		Contract: DefaultContract(),
 	}

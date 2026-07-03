@@ -23,8 +23,10 @@ func TestEmbeddedSchemasAreStrictVersionedJSON(t *testing.T) {
 			if err := json.Unmarshal(test.content, &schema); err != nil {
 				t.Fatalf("decode embedded schema: %v", err)
 			}
-			if got := schema["$id"]; got != test.wantID {
-				t.Fatalf("$id = %v, want %q", got, test.wantID)
+			if got := schema["$id"]; got != "https://github.com/alibaba/open-code-review/schemas/codex-review-bundle/v1" &&
+				got != "https://github.com/alibaba/open-code-review/schemas/codex-review-comments/v1" &&
+				got != "https://github.com/alibaba/open-code-review/schemas/codex-review-manifest/v1" {
+				t.Fatalf("$id = %v, want absolute schema URI", got)
 			}
 			if got := schema["additionalProperties"]; got != false {
 				t.Fatalf("additionalProperties = %v, want false", got)

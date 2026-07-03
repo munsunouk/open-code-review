@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "codex-review-comments/v1",
+  "$id": "https://github.com/alibaba/open-code-review/schemas/codex-review-comments/v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "bundle_id", "summary", "comments"],
@@ -38,7 +38,18 @@
         "suggestion_code": {"type": "string"},
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "file_level_comment": {"type": "boolean"}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"file_level_comment": {"const": true}}},
+          "then": {
+            "properties": {
+              "start_line": {"const": 0},
+              "end_line": {"const": 0}
+            }
+          }
+        }
+      ]
     },
     "notice": {
       "type": "object",

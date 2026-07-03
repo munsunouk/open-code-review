@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "codex-review-bundle/v1",
+  "$id": "https://github.com/alibaba/open-code-review/schemas/codex-review-bundle/v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "bundle_id", "target", "summary", "rules", "files", "contract"],
@@ -79,7 +79,7 @@
         "exclude_reason": {"enum": ["user_exclude", "unsupported_ext", "default_path", "deleted", "binary"]},
         "insertions": {"type": "integer", "minimum": 0},
         "deletions": {"type": "integer", "minimum": 0},
-        "content_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "content_sha256": {"type": "string", "pattern": "^(|sha256:[0-9a-f]{64})$"},
         "rule_id": {"type": "string"},
         "patch": {"type": "string"},
         "content": {"type": "string"},

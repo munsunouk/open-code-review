@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "codex-review-manifest/v1",
+  "$id": "https://github.com/alibaba/open-code-review/schemas/codex-review-manifest/v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -24,22 +24,67 @@
     "batch_strategy": {"enum": ["none", "by-language", "by-directory", "diff"]},
     "batch_size": {"type": "integer", "minimum": 1},
     "estimated_tokens": {"type": "integer", "minimum": 0},
-    "summary": {"type": "object"},
+    "summary": {"$ref": "#/$defs/summary"},
     "partial": {"type": "boolean"},
     "skipped_files": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["path", "reason"],
-        "properties": {
-          "path": {"type": "string"},
-          "reason": {"type": "string"},
-          "estimated_tokens": {"type": "integer", "minimum": 0}
-        }
+      "items": {"$ref": "#/$defs/skipped_file"}
+    },
+    "bundles": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/bundle_ref"}
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/notice"}
+    }
+  },
+  "$defs": {
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_files", "reviewable_files", "excluded_files", "insertions", "deletions"],
+      "properties": {
+        "total_files": {"type": "integer", "minimum": 0},
+        "reviewable_files": {"type": "integer", "minimum": 0},
+        "excluded_files": {"type": "integer", "minimum": 0},
+        "insertions": {"type": "integer", "minimum": 0},
+        "deletions": {"type": "integer", "minimum": 0}
       }
     },
-    "bundles": {"type": "array", "items": {"type": "object"}},
-    "warnings": {"type": "array", "items": {"type": "object"}}
+    "skipped_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "reason"],
+      "properties": {
+        "path": {"type": "string"},
+        "reason": {"type": "string"},
+        "estimated_tokens": {"type": "integer", "minimum": 0}
+      }
+    },
+    "bundle_ref": {
+      "type": "object",
+      "required": ["schema_version", "bundle_id", "target", "summary", "rules", "files", "contract"],
+      "properties": {
+        "schema_version": {"const": "codex-review-bundle/v1"},
+        "bundle_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "target": {"type": "object"},
+        "summary": {"type": "object"},
+        "rules": {"type": "object"},
+        "files": {"type": "array"},
+        "contract": {"type": "object"},
+        "warnings": {"type": "array"}
+      }
+    },
+    "notice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {"type": "string"},
+        "path": {"type": "string"},
+        "message": {"type": "string"}
+      }
+    }
   }
 }

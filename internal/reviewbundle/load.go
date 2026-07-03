@@ -9,8 +9,12 @@ import (
 
 // LoadBundle strictly decodes one review bundle protocol document.
 func LoadBundle(reader io.Reader) (*Bundle, error) {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("read bundle: %w", err)
+	}
 	var bundle Bundle
-	if err := decodeStrict(reader, &bundle); err != nil {
+	if err := decodeStrict(bytes.NewReader(data), &bundle); err != nil {
 		return nil, fmt.Errorf("invalid bundle schema: %w", err)
 	}
 	if bundle.SchemaVersion != BundleSchemaVersion {
@@ -30,6 +34,9 @@ func LoadBundle(reader io.Reader) (*Bundle, error) {
 	if bundle.BundleID != computedID {
 		return nil, fmt.Errorf("invalid bundle schema: bundle_id does not match bundle content")
 	}
+	if err := validateBundleDocument(data); err != nil {
+		return nil, err
+	}
 	return &bundle, nil
 }
 
@@ -45,6 +52,9 @@ func LoadComments(reader io.Reader) (*Comments, error) {
 	var comments Comments
 	if err := decodeStrict(bytes.NewReader(data), &comments); err != nil {
 		return nil, fmt.Errorf("invalid comments schema: %w", err)
+	}
+	if err := validateCommentsDocument(data); err != nil {
+		return nil, err
 	}
 	if comments.SchemaVersion != CommentsSchemaVersion {
 		return nil, fmt.Errorf(
@@ -91,14 +101,37 @@ func validateCommentsShape(data []byte) error {
 				return fmt.Errorf("invalid comments schema: comments[%d].%s is required", index, field)
 			}
 		}
+		fileLevel := false
+		if rawValue, ok := comment["file_level_comment"]; ok {
+			_ = json.Unmarshal(rawValue, &fileLevel)
+		}
+		if fileLevel {
+			var startLine, endLine int
+			if rawValue, ok := comment["start_line"]; ok {
+				_ = json.Unmarshal(rawValue, &startLine)
+			}
+			if rawValue, ok := comment["end_line"]; ok {
+				_ = json.Unmarshal(rawValue, &endLine)
+			}
+			if startLine != 0 || endLine != 0 {
+				return fmt.Errorf(
+					"invalid comments schema: comments[%d] file_level_comment requires start_line=0 and end_line=0",
+					index,
+				)
+			}
+		}
 	}
 	return nil
 }
 
 // LoadScanManifest strictly decodes one full-file scan manifest.
 func LoadScanManifest(reader io.Reader) (*ScanManifest, error) {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("read scan manifest: %w", err)
+	}
 	var manifest ScanManifest
-	if err := decodeStrict(reader, &manifest); err != nil {
+	if err := decodeStrict(bytes.NewReader(data), &manifest); err != nil {
 		return nil, fmt.Errorf("invalid scan manifest schema: %w", err)
 	}
 	if manifest.SchemaVersion != ScanManifestSchemaVersion {
@@ -129,6 +162,9 @@ func LoadScanManifest(reader io.Reader) (*ScanManifest, error) {
 	}
 	if manifest.ManifestID != computedID {
 		return nil, fmt.Errorf("invalid scan manifest schema: manifest_id does not match manifest content")
+	}
+	if err := validateManifestDocument(data); err != nil {
+		return nil, err
 	}
 	return &manifest, nil
 }
