@@ -131,5 +131,5 @@ func parseAgentValidateFlags(command string, args []string) (agentValidateOption
 func printAgentValidateUsage(writer io.Writer, command string) {
 	fmt.Fprintln(writer, `Usage:
   ocr `+command+` validate-comments --bundle FILE --comments FILE
-                              [--repo PATH] [--output FILE]`)
+                              [--repo PATH] [--output FILE] [--session-id ID]`)
 }

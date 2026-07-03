@@ -168,8 +168,12 @@ func parseAgentContextFlags(command string, operation string, args []string) (ag
 
 func printAgentContextUsage(writer io.Writer, command string) {
 	fmt.Fprintln(writer, `Usage:
-  ocr `+command+` context read --bundle FILE --path FILE [--start-line N --max-lines N]
-  ocr `+command+` context find --bundle FILE --query NAME
-  ocr `+command+` context diff --bundle FILE --path FILE[,FILE]
-  ocr `+command+` context search --bundle FILE --query TEXT [--file-pattern PATTERNS]`)
+  ocr `+command+` context read --bundle FILE [--bundle-index N] --path FILE
+                   [--repo PATH] [--session-id ID] [--start-line N --max-lines N]
+  ocr `+command+` context find --bundle FILE [--bundle-index N] --query NAME
+                   [--repo PATH] [--session-id ID]
+  ocr `+command+` context diff --bundle FILE [--bundle-index N] --path FILE[,FILE]
+                   [--repo PATH] [--session-id ID]
+  ocr `+command+` context search --bundle FILE [--bundle-index N] --query TEXT
+                   [--repo PATH] [--session-id ID] [--file-pattern PATTERNS]`)
 }
