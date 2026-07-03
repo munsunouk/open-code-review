@@ -133,8 +133,8 @@ func resolveRangeTarget(
 	}
 	return Target{
 		Mode:         TargetRange,
-		From:         from,
-		To:           head,
+		From:         spec.From,
+		To:           spec.To,
 		BaseSHA:      mergeBase,
 		HeadSHA:      head,
 		MergeBaseSHA: mergeBase,
@@ -162,7 +162,7 @@ func resolveCommitTarget(
 	}
 	return Target{
 		Mode:    TargetCommit,
-		Commit:  head,
+		Commit:  reference,
 		BaseSHA: base,
 		HeadSHA: head,
 	}, nil, nil

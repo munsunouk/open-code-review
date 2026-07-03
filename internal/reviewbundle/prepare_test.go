@@ -191,7 +191,11 @@ func TestPreparePartitionedReturnsPartialWhenEveryFileIsTooLarge(t *testing.T) {
 	}
 	if !manifest.Partial || len(manifest.Bundles) != 0 ||
 		len(manifest.SkippedFiles) != 1 ||
-		manifest.SkippedFiles[0].Reason != "bundle_too_large" {
+		manifest.SkippedFiles[0].Reason != "bundle_too_large" ||
+		manifest.Summary.ReviewableFiles != 0 ||
+		manifest.Summary.ExcludedFiles != manifest.Summary.TotalFiles ||
+		manifest.Summary.Insertions != 0 ||
+		manifest.Summary.Deletions != 0 {
 		t.Fatalf("manifest = %+v, want partial all-skipped manifest", manifest)
 	}
 }

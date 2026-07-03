@@ -111,6 +111,12 @@ func appendDiffPartition(
 		size := 0
 		if len(files) == 1 {
 			path = files[0].Path
+			if files[0].Reviewable {
+				manifest.Summary.ReviewableFiles--
+				manifest.Summary.ExcludedFiles++
+				manifest.Summary.Insertions -= files[0].Insertions
+				manifest.Summary.Deletions -= files[0].Deletions
+			}
 			if encoded != nil {
 				size = len(encoded)
 			}

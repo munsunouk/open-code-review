@@ -349,6 +349,38 @@ func TestValidateCommentsRejectsCheapEnvelopeErrors(t *testing.T) {
 	assertValidationCode(t, result.Errors, "invalid_summary")
 }
 
+func TestValidateCommentsRejectsMovedRangeRef(t *testing.T) {
+	repository := initPrepareRepository(t)
+	runTargetGit(t, repository, "checkout", "-q", "-b", "feature")
+	writeTargetFile(t, repository, "base.go", "package sample\n\nvar changed = 1\n")
+	runTargetGit(t, repository, "commit", "-am", "first change")
+
+	bundle, _, err := Prepare(context.Background(), PrepareOptions{
+		RepoDir:       repository,
+		Target:        TargetSpec{From: "master", To: "feature"},
+		Resolver:      detailResolverStub{},
+		GitRunner:     gitcmd.New(2),
+		MaxBundleSize: DefaultMaxBundleBytes,
+	})
+	if err != nil {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+	writeTargetFile(t, repository, "base.go", "package sample\n\nvar changed = 2\n")
+	runTargetGit(t, repository, "commit", "-am", "second change")
+
+	comments := &Comments{
+		SchemaVersion: CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       CommentsSummary{FilesReviewed: 1, IssuesFound: 0},
+		Comments:      []ReviewComment{},
+	}
+	result := ValidateComments(context.Background(), bundle, comments, repository, gitcmd.New(2))
+	if result.Valid {
+		t.Fatalf("ValidateComments() valid = true, want stale target rejection")
+	}
+	assertValidationCode(t, result.Errors, "stale_bundle")
+}
+
 func validationBundle() *Bundle {
 	return &Bundle{
 		SchemaVersion: BundleSchemaVersion,
