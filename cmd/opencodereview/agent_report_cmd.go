@@ -58,7 +58,8 @@ func runAgentReportForCommand(command string, args []string, writer io.Writer) e
 	if options.sessionID != "" {
 		repoDir, _, resolveErr := resolveWorkingDir(options.repoDir, false)
 		if resolveErr != nil {
-			return resolveErr
+			fmt.Fprintf(os.Stderr, "Warning: agent session not recorded: %v\n", resolveErr)
+			return nil
 		}
 		paths := make([]string, 0, len(bundle.Files))
 		for _, file := range bundle.Files {
@@ -82,7 +83,7 @@ func runAgentReportForCommand(command string, args []string, writer io.Writer) e
 			},
 			true,
 		); err != nil {
-			return err
+			fmt.Fprintf(os.Stderr, "Warning: agent session not recorded: %v\n", err)
 		}
 	}
 	return nil
