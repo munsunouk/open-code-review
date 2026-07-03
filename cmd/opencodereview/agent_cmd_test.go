@@ -510,6 +510,50 @@ func TestAgentPrepareScanWorksWithoutGitOrLLMConfiguration(t *testing.T) {
 	}
 }
 
+func TestAgentPrepareScanValidateWithSharedSessionID(t *testing.T) {
+	directory := t.TempDir()
+	writeAgentFile(t, directory, "main.go", "package sample\n\nfunc Main() {}\n")
+	t.Setenv("HOME", t.TempDir())
+
+	var output bytes.Buffer
+	err := runAgentWithWriter([]string{
+		"prepare",
+		"--scan",
+		"--repo", directory,
+		"--path", "main.go",
+		"--session-id", "scan-run-1",
+	}, &output)
+	if err != nil {
+		t.Fatalf("prepare scan: %v", err)
+	}
+	manifestPath := filepath.Join(t.TempDir(), "manifest.json")
+	if err := os.WriteFile(manifestPath, output.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var manifest reviewbundle.ScanManifest
+	if err := json.Unmarshal(output.Bytes(), &manifest); err != nil {
+		t.Fatal(err)
+	}
+	commentsPath := filepath.Join(t.TempDir(), "scan-comments.json")
+	writeAgentJSON(t, commentsPath, reviewbundle.Comments{
+		SchemaVersion: reviewbundle.CommentsSchemaVersion,
+		BundleID:      manifest.Bundles[0].BundleID,
+		Summary:       reviewbundle.CommentsSummary{FilesReviewed: 1, IssuesFound: 0},
+		Comments:      []reviewbundle.ReviewComment{},
+	})
+	output.Reset()
+	err = runAgentWithWriter([]string{
+		"validate-comments",
+		"--repo", directory,
+		"--bundle", manifestPath,
+		"--comments", commentsPath,
+		"--session-id", "scan-run-1",
+	}, &output)
+	if err != nil {
+		t.Fatalf("validate scan comments with session id: %v", err)
+	}
+}
+
 func TestAgentDispatchIsRegistered(t *testing.T) {
 	originalArgs := os.Args
 	os.Args = []string{"ocr", "agent", "prepare", "--from", "main"}

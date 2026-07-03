@@ -13,6 +13,7 @@ import (
 	scanpkg "github.com/open-code-review/open-code-review/internal/scan"
 	"github.com/open-code-review/open-code-review/internal/session"
 	"github.com/open-code-review/open-code-review/internal/stdout"
+	"github.com/open-code-review/open-code-review/internal/telemetry"
 )
 
 type agentPrepareOptions struct {
@@ -155,8 +156,14 @@ func validateAgentPrepareOptions(options agentPrepareOptions) error {
 	if options.maxGitProcs <= 0 {
 		return fmt.Errorf("--max-git-procs must be greater than zero")
 	}
-	if options.maxFileBytes <= 0 || options.maxTokenBudget < 0 || options.batchSize <= 0 {
-		return fmt.Errorf("--max-file-size-bytes and --batch-size must be positive; --max-tokens-budget cannot be negative")
+	if options.maxFileBytes <= 0 {
+		return fmt.Errorf("--max-file-size-bytes must be greater than zero")
+	}
+	if options.maxTokenBudget < 0 {
+		return fmt.Errorf("--max-tokens-budget cannot be negative")
+	}
+	if options.batchSize <= 0 {
+		return fmt.Errorf("--batch-size must be greater than zero")
 	}
 	switch options.batchStrategy {
 	case "none", "by-language", "by-directory":
@@ -392,9 +399,14 @@ func recordAgentEvent(
 		return fmt.Errorf("open agent session: %w", err)
 	}
 	if finalize {
-		return recorder.Finalize(details)
+		if err := recorder.Finalize(bundleID, details); err != nil {
+			return err
+		}
+	} else if err := recorder.Record(event, bundleID, details); err != nil {
+		return err
 	}
-	return recorder.Record(event, details)
+	telemetry.RecordAgentEvent(context.Background(), event)
+	return nil
 }
 
 func writePrivateFile(path string, content []byte) error {

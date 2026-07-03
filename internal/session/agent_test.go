@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 )
@@ -17,12 +16,12 @@ func TestAgentRecorderPersistsCorrelatedReadOnlyAgentRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenAgentRecorder() error = %v", err)
 	}
-	if err := recorder.Record("prepare", AgentEvent{
+	if err := recorder.Record("prepare", "sha256:bundle", AgentEvent{
 		Files: 3, Warnings: 1, Partial: true, DurationMS: 25,
 	}); err != nil {
 		t.Fatalf("Record() error = %v", err)
 	}
-	if err := recorder.Finalize(AgentEvent{Findings: 2, ValidationValid: boolPointer(true)}); err != nil {
+	if err := recorder.Finalize("sha256:bundle", AgentEvent{Findings: 2, ValidationValid: boolPointer(true)}); err != nil {
 		t.Fatalf("Finalize() error = %v", err)
 	}
 
@@ -84,7 +83,7 @@ func TestAgentRecorderRestoresStartTimeWhenResuming(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenAgentRecorder() error = %v", err)
 	}
-	if err := recorder.Finalize(AgentEvent{}); err != nil {
+	if err := recorder.Finalize("sha256:bundle", AgentEvent{}); err != nil {
 		t.Fatalf("Finalize() error = %v", err)
 	}
 	records := readAgentRecords(t, recorder.Path())
@@ -124,7 +123,7 @@ func TestAgentRecorderRejectsInvalidSessionID(t *testing.T) {
 	}
 }
 
-func TestAgentRecorderRejectsResumeBundleMismatch(t *testing.T) {
+func TestAgentRecorderAllowsManifestToBundleCorrelation(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	repository := t.TempDir()
@@ -135,18 +134,22 @@ func TestAgentRecorderRejectsResumeBundleMismatch(t *testing.T) {
 	path := filepath.Join(directory, "run-123.jsonl")
 	if err := os.WriteFile(
 		path,
-		[]byte(`{"type":"session_start","timestamp":"not-rfc3339","bundleId":"sha256:old"}`+"\n"),
+		[]byte(`{"type":"session_start","timestamp":"2026-01-01T00:00:00Z","bundleId":"sha256:manifest"}`+"\n"),
 		0o600,
 	); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := OpenAgentRecorder(repository, "run-123", "sha256:new")
-	if err == nil || !strings.Contains(err.Error(), "already bound") {
-		t.Fatalf("OpenAgentRecorder() error = %v, want bundle mismatch", err)
+	recorder, err := OpenAgentRecorder(repository, "run-123", "sha256:nested-bundle")
+	if err != nil {
+		t.Fatalf("OpenAgentRecorder() error = %v", err)
 	}
-	if got := readAgentSessionStart(path, time.Unix(123, 0)); !got.Equal(time.Unix(123, 0)) {
-		t.Fatalf("readAgentSessionStart() = %v, want fallback", got)
+	if err := recorder.Record("validate", "sha256:nested-bundle", AgentEvent{Findings: 1}); err != nil {
+		t.Fatalf("Record() error = %v", err)
+	}
+	records := readAgentRecords(t, recorder.Path())
+	if records[1]["bundleId"] != "sha256:nested-bundle" {
+		t.Fatalf("event bundleId = %v, want nested bundle id", records[1]["bundleId"])
 	}
 }
 
