@@ -321,15 +321,19 @@ codex
 @Open Code Review review and fix high-confidence issues
 ```
 
-이 plugin은 local OCR CLI를 실행하는 Codex skill을 등록합니다.
+이 plugin은 Codex-owned review skill을 등록합니다. OCR은 결정적 review evidence와 target-aware context를 제공하고, Codex가 계획·판단·보고·수정을 수행합니다.
+
+호스트 공통 명령 표면은 `ocr agent ...`입니다.
 
 ```bash
-ocr review --audience agent
+ocr agent prepare --format json
+ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
+ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-이 통합은 OCR의 내부 LLM backend를 변경하지 않으며 Codex용 OpenAI Responses API endpoint 설정을 요구하지 않습니다. OCR 자체는 CLI 설정 섹션에 설명된 대로 `ocr` CLI 설치와 설정이 필요합니다.
+Codex-owned 경로는 OCR LLM backend를 초기화하지 않으며 OCR provider나 API key가 필요하지 않습니다. 명시적으로 OCR의 외부 LLM workflow를 원할 때만 `ocr review`와 `ocr scan`을 사용합니다.
 
-한국어 가이드: [`plugins/open-code-review/CODEX.ko-KR.md`](plugins/open-code-review/CODEX.ko-KR.md)
+한국어 가이드: [`plugins/open-code-review/CODEX.ko-KR.md`](plugins/open-code-review/CODEX.ko-KR.md) · 마이그레이션: [`docs/CODEX_MIGRATION.md`](docs/CODEX_MIGRATION.md)
 
 #### Option 4: Cursor Plugin으로 설치
 
@@ -355,13 +359,15 @@ cursor-plugin marketplace add .
 @Open Code Review review and fix high-confidence issues
 ```
 
-이 plugin은 local OCR CLI를 실행하는 Cursor skill을 등록합니다:
+이 plugin은 host-agent review skill을 등록합니다. Cursor agent가 `ocr agent ...` workflow를 사용합니다.
 
 ```bash
-ocr review --audience agent
+ocr agent prepare --format json
+ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
+ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-이 통합은 OCR의 내부 LLM backend를 변경하지 않습니다. OCR 자체는 CLI 설정 섹션에 설명된 대로 `ocr` CLI 설치와 설정이 필요합니다.
+이 통합은 OCR LLM backend를 초기화하지 않습니다. native `ocr review`/`ocr scan`은 외부 LLM workflow가 필요할 때만 사용합니다.
 
 #### Option 5: Command 파일 직접 복사
 

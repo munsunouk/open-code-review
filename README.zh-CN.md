@@ -321,15 +321,17 @@ codex
 @Open Code Review review and fix high-confidence issues
 ```
 
-这会注册一个 Codex skill，用于运行本地 OCR CLI：
+这会注册 host-agent review skill，由 coding agent 使用 `ocr agent ...` workflow：
 
 ```bash
-ocr review --audience agent
+ocr agent prepare --format json
+ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
+ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-此集成不会改变 OCR 的内部 LLM backend，也不需要为 Codex 配置 OpenAI Responses API endpoint。OCR 本身仍需要按照 CLI setup 部分安装并配置 `ocr` CLI。
+此集成不会初始化 OCR LLM backend。仅在需要外部 LLM workflow 时使用 `ocr review` 和 `ocr scan`。
 
-韩文指南：[`plugins/open-code-review/CODEX.ko-KR.md`](plugins/open-code-review/CODEX.ko-KR.md)
+韩文指南：[`plugins/open-code-review/CODEX.ko-KR.md`](plugins/open-code-review/CODEX.ko-KR.md) · 迁移：[`docs/CODEX_MIGRATION.md`](docs/CODEX_MIGRATION.md)
 
 #### 方式四：作为 Cursor Plugin 安装
 
@@ -355,13 +357,15 @@ cursor-plugin marketplace add .
 @Open Code Review review and fix high-confidence issues
 ```
 
-这会注册一个 Cursor skill，用于运行本地 OCR CLI：
+这会注册 host-agent review skill，由 Cursor agent 使用 `ocr agent ...` workflow：
 
 ```bash
-ocr review --audience agent
+ocr agent prepare --format json
+ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
+ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-此集成不会改变 OCR 的内部 LLM backend。OCR 本身仍需要按照 CLI setup 部分安装并配置 `ocr` CLI。
+此集成不会初始化 OCR LLM backend。仅在需要外部 LLM workflow 时使用 `ocr review` 和 `ocr scan`。
 
 #### 方式五：直接复制命令文件
 

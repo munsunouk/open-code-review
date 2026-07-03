@@ -15,6 +15,18 @@ Codex 모드에서는 독립 LLM을 호출하지 않고 소스 코드도 수정�
 
 Codex 주도 경로에는 OCR provider 또는 API key 설정이 필요하지 않습니다.
 
+## 설치
+
+```bash
+codex plugin marketplace add alibaba/open-code-review
+codex
+/plugins
+```
+
+로컬 checkout이나 fork에서는 `codex plugin marketplace add .`를 사용합니다. `Open Code Review`를 설치·활성화한 뒤 새 thread에서 `@Open Code Review ...`로 호출합니다.
+
+레거시 `ocr codex` 명령은 `ocr agent`로 대체되었습니다. 자세한 내용은 [`docs/CODEX_MIGRATION.md`](../../docs/CODEX_MIGRATION.md)를 참고하세요.
+
 ```bash
 # 현재 작업공간
 ocr agent prepare --format json

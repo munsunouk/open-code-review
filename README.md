@@ -340,6 +340,10 @@ user explicitly wants OCR's independent external-LLM workflow.
 
 Korean guide: [`plugins/open-code-review/CODEX.ko-KR.md`](plugins/open-code-review/CODEX.ko-KR.md)
 
+Migration notes: [`docs/CODEX_MIGRATION.md`](docs/CODEX_MIGRATION.md)
+
+CI example: [`docs/examples/github-actions-ocr-agent-review.yml`](docs/examples/github-actions-ocr-agent-review.yml)
+
 #### Option 4: Install as a Cursor Plugin
 
 For [Cursor](https://www.cursor.com/), install the Open Code Review plugin from this repository:

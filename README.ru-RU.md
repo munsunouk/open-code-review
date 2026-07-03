@@ -321,15 +321,19 @@ codex
 @Open Code Review review and fix high-confidence issues
 ```
 
-Это зарегистрирует Codex-скилл, запускающий локальный CLI OCR:
+Это зарегистрирует Codex-owned review skill. OCR предоставляет детерминированные review evidence и target-aware context; Codex выполняет планирование, рассуждение, отчёт и исправления.
+
+Общая host-команда: `ocr agent ...`.
 
 ```bash
-ocr review --audience agent
+ocr agent prepare --format json
+ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
+ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-Эта интеграция не меняет внутренний LLM-бэкенд OCR и не требует настройки эндпоинта OpenAI Responses API для Codex. Самому OCR по-прежнему нужен установленный и настроенный CLI `ocr`, как описано в разделе про настройку CLI.
+Путь Codex-owned не инициализирует LLM backend OCR и не требует provider или API key. `ocr review` и `ocr scan` используйте только при явном запросе внешнего LLM workflow.
 
-Руководство на корейском: [`plugins/open-code-review/CODEX.ko-KR.md`](plugins/open-code-review/CODEX.ko-KR.md)
+Руководство на корейском: [`plugins/open-code-review/CODEX.ko-KR.md`](plugins/open-code-review/CODEX.ko-KR.md) · миграция: [`docs/CODEX_MIGRATION.md`](docs/CODEX_MIGRATION.md)
 
 #### Вариант 4: установка как плагин Cursor
 
@@ -355,13 +359,15 @@ cursor-plugin marketplace add .
 @Open Code Review review and fix high-confidence issues
 ```
 
-Это зарегистрирует Cursor-скилл, запускающий локальный CLI OCR:
+Это зарегистрирует host-agent review skill; Cursor agent использует workflow `ocr agent ...`:
 
 ```bash
-ocr review --audience agent
+ocr agent prepare --format json
+ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
+ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-Эта интеграция не меняет внутренний LLM-бэкенд OCR. Самому OCR по-прежнему нужен установленный и настроенный CLI `ocr`, как описано в разделе про настройку CLI.
+Интеграция не инициализирует LLM backend OCR. `ocr review` и `ocr scan` — только при явном запросе внешнего LLM workflow.
 
 #### Вариант 5: просто скопировать файл команды
 
