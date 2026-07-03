@@ -59,6 +59,107 @@ func TestLoadCommentsRejectsMissingRequiredFields(t *testing.T) {
 	}
 }
 
+func TestLoadProtocolRejectsSchemaEdges(t *testing.T) {
+	validBundleID := "sha256:" + strings.Repeat("a", 64)
+	validComment := `{
+		"schema_version":"agent-review-comments/v1",
+		"bundle_id":"` + validBundleID + `",
+		"summary":{"files_reviewed":1,"issues_found":1},
+		"comments":[{
+			"path":"main.go","start_line":1,"end_line":1,
+			"priority":"medium","category":"bug","title":"title",
+			"content":"content","recommendation":"fix","confidence":0.9
+		}]
+	}`
+	tests := []struct {
+		name string
+		load func(string) error
+		body string
+		want string
+	}{
+		{
+			name: "bundle version",
+			load: func(body string) error {
+				_, err := LoadBundle(strings.NewReader(body))
+				return err
+			},
+			body: `{"schema_version":"bad","bundle_id":"sha256:test"}`,
+			want: "invalid bundle schema version",
+		},
+		{
+			name: "bundle id",
+			load: func(body string) error {
+				_, err := LoadBundle(strings.NewReader(body))
+				return err
+			},
+			body: `{"schema_version":"agent-review-bundle/v1"}`,
+			want: "bundle_id is required",
+		},
+		{
+			name: "comments body",
+			load: func(body string) error {
+				_, err := LoadComments(strings.NewReader(body))
+				return err
+			},
+			body: strings.Replace(validComment, `"comments":[{`, `"comments":null,"ignored":[{`, 1),
+			want: "comments field is required",
+		},
+		{
+			name: "comments summary mismatch",
+			load: func(body string) error {
+				_, err := LoadComments(strings.NewReader(body))
+				return err
+			},
+			body: strings.Replace(validComment, `"issues_found":1`, `"issues_found":0`, 1),
+			want: "summary.issues_found",
+		},
+		{
+			name: "file level line range",
+			load: func(body string) error {
+				_, err := LoadComments(strings.NewReader(body))
+				return err
+			},
+			body: strings.Replace(validComment, `"confidence":0.9`, `"confidence":0.9,"file_level_comment":true`, 1),
+			want: "file_level_comment requires start_line=0 and end_line=0",
+		},
+		{
+			name: "manifest version",
+			load: func(body string) error {
+				_, err := LoadScanManifest(strings.NewReader(body))
+				return err
+			},
+			body: `{"schema_version":"bad","manifest_id":"sha256:test","bundles":[]}`,
+			want: "invalid scan manifest schema version",
+		},
+		{
+			name: "manifest id",
+			load: func(body string) error {
+				_, err := LoadScanManifest(strings.NewReader(body))
+				return err
+			},
+			body: `{"schema_version":"agent-review-manifest/v1","bundles":[]}`,
+			want: "manifest_id is required",
+		},
+		{
+			name: "manifest bundles",
+			load: func(body string) error {
+				_, err := LoadScanManifest(strings.NewReader(body))
+				return err
+			},
+			body: `{"schema_version":"agent-review-manifest/v1","manifest_id":"sha256:test"}`,
+			want: "bundles is required",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.load(tt.body)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("load error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
 func TestLoadBundleRejectsTamperedBundleID(t *testing.T) {
 	bundle := validIdentifiedBundle(t)
 	encoded, err := json.Marshal(bundle)
@@ -200,6 +301,40 @@ func TestValidateCommentsWarnsOutsideChangedHunk(t *testing.T) {
 		t.Fatalf("ValidateComments() errors = %#v", result.Errors)
 	}
 	assertValidationCode(t, result.Warnings, "outside_changed_hunk")
+}
+
+func TestValidateCommentsRejectsCheapEnvelopeErrors(t *testing.T) {
+	nilResult := ValidateComments(context.Background(), nil, nil, "", nil)
+	if nilResult.Valid {
+		t.Fatal("ValidateComments(nil, nil) valid = true, want false")
+	}
+	assertValidationCode(t, nilResult.Errors, "invalid_schema")
+
+	bundle := validationBundle()
+	comments := &Comments{
+		SchemaVersion: "bad",
+		BundleID:      "sha256:other",
+		Summary:       CommentsSummary{FilesReviewed: 2, IssuesFound: 0},
+		Comments: []ReviewComment{{
+			Path:           "main.go",
+			StartLine:      1,
+			EndLine:        1,
+			Priority:       "medium",
+			Category:       "bug",
+			Title:          "",
+			Content:        "content",
+			Recommendation: "fix",
+			Confidence:     0.5,
+		}},
+	}
+	result := ValidateComments(context.Background(), bundle, comments, "", nil)
+	if result.Valid {
+		t.Fatal("ValidateComments() valid = true, want false")
+	}
+	assertValidationCode(t, result.Errors, "invalid_schema")
+	assertValidationCode(t, result.Errors, "bundle_id_mismatch")
+	assertValidationCode(t, result.Errors, "invalid_comment")
+	assertValidationCode(t, result.Errors, "invalid_summary")
 }
 
 func validationBundle() *Bundle {
