@@ -133,24 +133,18 @@ func (recorder *AgentRecorder) Path() string {
 
 // Record appends one correlated host-agent workflow event.
 func (recorder *AgentRecorder) Record(event string, bundleID string, details AgentEvent) error {
-	if agentSessionHasEnd(recorder.path) {
-		return nil
-	}
 	record := agentEventRecord(recorder, "agent_event", bundleID, details)
 	record["event"] = event
-	return recorder.write(record)
+	return recorder.write(record, true)
 }
 
 // Finalize appends a viewer-compatible session end record.
 func (recorder *AgentRecorder) Finalize(bundleID string, details AgentEvent) error {
-	if agentSessionHasEnd(recorder.path) {
-		return nil
-	}
 	record := agentEventRecord(recorder, "session_end", bundleID, details)
 	record["duration_seconds"] = time.Since(recorder.started).Seconds()
 	record["files_reviewed"] = details.FilesReviewed
 	record["llm_failures"] = 0
-	return recorder.write(record)
+	return recorder.write(record, true)
 }
 
 func agentEventRecord(
@@ -278,7 +272,7 @@ func (recorder *AgentRecorder) writeExclusiveStart(record map[string]any) error 
 	return file.Close()
 }
 
-func (recorder *AgentRecorder) write(record map[string]any) error {
+func (recorder *AgentRecorder) write(record map[string]any, skipIfEnded bool) error {
 	recorder.mu.Lock()
 	defer recorder.mu.Unlock()
 	encoded, err := json.Marshal(record)
@@ -287,7 +281,7 @@ func (recorder *AgentRecorder) write(record map[string]any) error {
 	}
 	file, err := os.OpenFile(
 		recorder.path,
-		os.O_CREATE|os.O_WRONLY|os.O_APPEND,
+		os.O_CREATE|os.O_RDWR|os.O_APPEND,
 		0o600,
 	)
 	if err != nil {
@@ -296,6 +290,25 @@ func (recorder *AgentRecorder) write(record map[string]any) error {
 	if err := lockSessionFile(file); err != nil {
 		_ = file.Close()
 		return fmt.Errorf("lock agent session: %w", err)
+	}
+	if skipIfEnded {
+		ended, endErr := agentSessionFileHasEnd(file)
+		if endErr != nil {
+			unlockSessionFile(file)
+			_ = file.Close()
+			return endErr
+		}
+		if ended {
+			unlockErr := unlockSessionFile(file)
+			closeErr := file.Close()
+			if unlockErr != nil {
+				return fmt.Errorf("unlock agent session: %w", unlockErr)
+			}
+			if closeErr != nil {
+				return fmt.Errorf("close agent session: %w", closeErr)
+			}
+			return nil
+		}
 	}
 	_, writeErr := file.Write(append(encoded, '\n'))
 	unlockErr := unlockSessionFile(file)
@@ -310,4 +323,24 @@ func (recorder *AgentRecorder) write(record map[string]any) error {
 		return fmt.Errorf("close agent session: %w", closeErr)
 	}
 	return nil
+}
+
+func agentSessionFileHasEnd(file *os.File) (bool, error) {
+	if _, err := file.Seek(0, 0); err != nil {
+		return false, fmt.Errorf("seek agent session: %w", err)
+	}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		var record map[string]any
+		if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
+			continue
+		}
+		if recordType, _ := record["type"].(string); recordType == "session_end" {
+			return true, nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return false, fmt.Errorf("scan agent session: %w", err)
+	}
+	return false, nil
 }

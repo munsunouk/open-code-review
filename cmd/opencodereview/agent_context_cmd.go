@@ -54,11 +54,13 @@ func runAgentContextForCommand(
 		return fmt.Errorf("open bundle: %w", err)
 	}
 	bundle, loadErr := reviewbundle.LoadBundle(bytes.NewReader(bundleContent))
+	var manifest *reviewbundle.ScanManifest
 	if loadErr != nil {
-		manifest, manifestErr := reviewbundle.LoadScanManifest(bytes.NewReader(bundleContent))
+		loadedManifest, manifestErr := reviewbundle.LoadScanManifest(bytes.NewReader(bundleContent))
 		if manifestErr != nil {
 			return fmt.Errorf("open bundle: %w", manifestErr)
 		}
+		manifest = loadedManifest
 		if options.bundleIndex < 0 && len(manifest.Bundles) == 1 {
 			options.bundleIndex = 0
 		}
@@ -74,12 +76,29 @@ func runAgentContextForCommand(
 	if err != nil {
 		return err
 	}
+	if manifest != nil {
+		validation := reviewbundle.ValidationResult{Errors: make([]reviewbundle.ValidationNotice, 0)}
+		reviewbundle.ValidateScanManifestFreshness(&validation, manifest, bundle.BundleID, repoDir)
+		if len(validation.Errors) > 0 {
+			return &reviewbundle.ProtocolError{
+				Code:    "stale_bundle",
+				Message: validation.Errors[0].Message,
+			}
+		}
+	}
 	service := reviewbundle.NewContextService(repoDir, bundle, gitcmd.New(options.maxGitProcs))
 	result, err := executeContextOperation(ctx, service, options)
 	if err != nil {
 		return err
 	}
-	if err := recordAgentEvent(
+	encoded, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode context result: %w", err)
+	}
+	if _, err := writer.Write(append(encoded, '\n')); err != nil {
+		return err
+	}
+	recordAgentEventBestEffort(
 		repoDir,
 		options.sessionID,
 		bundle.BundleID,
@@ -89,15 +108,8 @@ func runAgentContextForCommand(
 			DurationMS:   time.Since(started).Milliseconds(),
 		},
 		false,
-	); err != nil {
-		return err
-	}
-	encoded, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode context result: %w", err)
-	}
-	_, err = writer.Write(append(encoded, '\n'))
-	return err
+	)
+	return nil
 }
 
 func executeContextOperation(

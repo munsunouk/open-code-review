@@ -50,7 +50,7 @@ func runAgentValidateCommentsForCommand(
 	if closeErr != nil {
 		return fmt.Errorf("close comments: %w", closeErr)
 	}
-	bundle, err := loadAgentBundleByID(options.bundlePath, comments.BundleID)
+	bundle, manifest, err := loadAgentBundleInputByID(options.bundlePath, comments.BundleID)
 	if err != nil {
 		return err
 	}
@@ -68,6 +68,9 @@ func runAgentValidateCommentsForCommand(
 		repoDir,
 		gitcmd.New(options.maxGitProcs),
 	)
+	if manifest != nil {
+		reviewbundle.ValidateScanManifestFreshness(&result, manifest, bundle.BundleID, repoDir)
+	}
 	encoded, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode validation result: %w", err)

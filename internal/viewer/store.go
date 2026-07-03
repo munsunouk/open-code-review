@@ -140,10 +140,9 @@ func peekSession(path string) (SessionSummary, error) {
 	buf := make([]byte, 0, 1024*1024)
 	scanner.Buffer(buf, 10*1024*1024)
 
-	var lastLine []byte
+	var lastSessionEnd []byte
 	for scanner.Scan() {
 		line := scanner.Bytes()
-		lastLine = append([]byte(nil), line...)
 
 		if summary.Timestamp.IsZero() {
 			var rec map[string]any
@@ -176,11 +175,17 @@ func peekSession(path string) (SessionSummary, error) {
 			}
 			parseAgentSessionStartFields(rec, &summary)
 		}
+		var rec map[string]any
+		if err := json.Unmarshal(line, &rec); err == nil {
+			if typ, _ := rec["type"].(string); typ == "session_end" {
+				lastSessionEnd = append([]byte(nil), line...)
+			}
+		}
 	}
 
-	if len(lastLine) > 0 {
+	if len(lastSessionEnd) > 0 {
 		var rec map[string]any
-		if err := json.Unmarshal(lastLine, &rec); err == nil {
+		if err := json.Unmarshal(lastSessionEnd, &rec); err == nil {
 			if typ, _ := rec["type"].(string); typ == "session_end" {
 				if dur, ok := rec["duration_seconds"].(float64); ok {
 					summary.DurationSec = dur

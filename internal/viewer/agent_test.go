@@ -73,6 +73,32 @@ func TestViewerLoadsAgentSession(t *testing.T) {
 	}
 }
 
+func TestViewerSummaryUsesSessionEndBeforeLateAgentEvent(t *testing.T) {
+	root := t.TempDir()
+	repository := filepath.Join(root, "repo")
+	if err := os.MkdirAll(repository, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	content := "" +
+		`{"type":"session_start","sessionId":"run-1","timestamp":"2026-06-30T00:00:00Z","cwd":"/repo","reviewMode":"agent","controlPlane":"agent","bundleId":"sha256:bundle","tokenUsage":"not_available"}` + "\n" +
+		`{"type":"session_end","sessionId":"run-1","timestamp":"2026-06-30T00:00:02Z","duration_seconds":2,"files_reviewed":["main.go"],"llm_failures":0,"controlPlane":"agent","bundleId":"sha256:bundle","tokenUsage":"not_available"}` + "\n" +
+		`{"type":"agent_event","sessionId":"run-1","timestamp":"2026-06-30T00:00:03Z","event":"context.read","bundleId":"sha256:bundle","context_calls":1}` + "\n"
+	if err := os.WriteFile(filepath.Join(repository, "run-1.jsonl"), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	summaries, err := ListSessions(root, "repo")
+	if err != nil {
+		t.Fatalf("ListSessions() error = %v", err)
+	}
+	if len(summaries) != 1 ||
+		summaries[0].DurationSec != 2 ||
+		summaries[0].FileCount != 1 ||
+		summaries[0].FilesReviewed[0] != "main.go" {
+		t.Fatalf("summary = %+v, want session_end data despite late event", summaries)
+	}
+}
+
 func TestAgentEventValidationLabelDistinguishesFalse(t *testing.T) {
 	valid := true
 	invalid := false

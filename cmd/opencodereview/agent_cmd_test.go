@@ -68,6 +68,38 @@ func TestAgentPrepareWritesOnlyExplicitOutputWithRestrictedMode(t *testing.T) {
 	}
 }
 
+func TestAgentPrepareWritesOutputWhenSessionRecordingFails(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, ".opencodereview"), 0o700); err != nil {
+		t.Fatalf("create opencodereview dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".opencodereview", "sessions"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("block sessions dir: %v", err)
+	}
+	repository := initAgentRepository(t)
+	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
+	outputPath := filepath.Join(t.TempDir(), "bundle.json")
+
+	err := runAgentWithWriter([]string{
+		"prepare",
+		"--repo", repository,
+		"--output", outputPath,
+		"--session-id", "run-prepare",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("prepare with broken session store: %v", err)
+	}
+	content, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("read bundle output: %v", err)
+	}
+	var bundle reviewbundle.Bundle
+	if err := json.Unmarshal(content, &bundle); err != nil {
+		t.Fatalf("decode bundle output: %v\n%s", err, content)
+	}
+}
+
 func TestAgentPreparePreviewOmitsPatchBodies(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
@@ -593,6 +625,135 @@ func TestAgentPrepareScanWorksWithoutGitOrLLMConfiguration(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), `"valid": true`) {
 		t.Fatalf("scan validation output:\n%s", output.String())
+	}
+}
+
+func TestAgentPrepareScanOutputInsideRepoIsNotScanned(t *testing.T) {
+	directory := t.TempDir()
+	writeAgentFile(t, directory, "a.go", "package sample\n\nfunc A() {}\n")
+	outputPath := filepath.Join(directory, "manifest.json")
+
+	err := runAgentWithWriter([]string{
+		"prepare",
+		"--scan",
+		"--repo", directory,
+		"--batch", "none",
+		"--batch-size", "1",
+		"--output", outputPath,
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("prepare scan: %v", err)
+	}
+	content, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	var manifest reviewbundle.ScanManifest
+	if err := json.Unmarshal(content, &manifest); err != nil {
+		t.Fatalf("decode manifest: %v\n%s", err, content)
+	}
+	for _, bundle := range manifest.Bundles {
+		for _, file := range bundle.Files {
+			if file.Path == "manifest.json" {
+				t.Fatalf("scan output file was included in manifest: %+v", manifest)
+			}
+		}
+	}
+	if manifest.Summary.TotalFiles != 1 || manifest.Summary.ReviewableFiles != 1 {
+		t.Fatalf("manifest summary = %+v, want only a.go", manifest.Summary)
+	}
+}
+
+func TestAgentValidateScanManifestRejectsStaleSiblingBundleFile(t *testing.T) {
+	directory := t.TempDir()
+	writeAgentFile(t, directory, "a.go", "package sample\n\nfunc A() {}\n")
+	writeAgentFile(t, directory, "b.go", "package sample\n\nfunc B() {}\n")
+	manifestPath := filepath.Join(t.TempDir(), "manifest.json")
+	if err := runAgentWithWriter([]string{
+		"prepare",
+		"--scan",
+		"--repo", directory,
+		"--batch", "none",
+		"--batch-size", "1",
+		"--output", manifestPath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("prepare scan: %v", err)
+	}
+	content, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	var manifest reviewbundle.ScanManifest
+	if err := json.Unmarshal(content, &manifest); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	if len(manifest.Bundles) != 2 {
+		t.Fatalf("bundles = %d, want two single-file bundles", len(manifest.Bundles))
+	}
+	commentsPath := filepath.Join(t.TempDir(), "comments.json")
+	writeAgentJSON(t, commentsPath, reviewbundle.Comments{
+		SchemaVersion: reviewbundle.CommentsSchemaVersion,
+		BundleID:      manifest.Bundles[0].BundleID,
+		Summary:       reviewbundle.CommentsSummary{FilesReviewed: 0, IssuesFound: 0},
+		Comments:      []reviewbundle.ReviewComment{},
+	})
+	stalePath := manifest.Bundles[1].Files[0].Path
+	writeAgentFile(t, directory, stalePath, "package sample\n\nfunc Changed() {}\n")
+
+	var output bytes.Buffer
+	err = runAgentWithWriter([]string{
+		"validate-comments",
+		"--repo", directory,
+		"--bundle", manifestPath,
+		"--comments", commentsPath,
+	}, &output)
+	if _, ok := err.(validationFailedError); !ok {
+		t.Fatalf("validate comments error = %T(%v), want validation failure", err, err)
+	}
+	if !strings.Contains(output.String(), `"stale_bundle"`) ||
+		!strings.Contains(output.String(), stalePath) {
+		t.Fatalf("validation output did not report stale sibling file %q:\n%s", stalePath, output.String())
+	}
+}
+
+func TestAgentContextRejectsStaleSiblingBundleFile(t *testing.T) {
+	directory := t.TempDir()
+	writeAgentFile(t, directory, "a.go", "package sample\n\nfunc A() {}\n")
+	writeAgentFile(t, directory, "b.go", "package sample\n\nfunc B() {}\n")
+	manifestPath := filepath.Join(t.TempDir(), "manifest.json")
+	if err := runAgentWithWriter([]string{
+		"prepare",
+		"--scan",
+		"--repo", directory,
+		"--batch", "none",
+		"--batch-size", "1",
+		"--output", manifestPath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("prepare scan: %v", err)
+	}
+	content, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	var manifest reviewbundle.ScanManifest
+	if err := json.Unmarshal(content, &manifest); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	if len(manifest.Bundles) != 2 {
+		t.Fatalf("bundles = %d, want two single-file bundles", len(manifest.Bundles))
+	}
+	stalePath := manifest.Bundles[1].Files[0].Path
+	writeAgentFile(t, directory, stalePath, "package sample\n\nfunc Changed() {}\n")
+
+	err = runAgentWithWriter([]string{
+		"context", "read",
+		"--repo", directory,
+		"--bundle", manifestPath,
+		"--bundle-index", "0",
+		"--path", manifest.Bundles[0].Files[0].Path,
+	}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "stale_bundle") {
+		t.Fatalf("context read error = %v, want stale_bundle", err)
 	}
 }
 

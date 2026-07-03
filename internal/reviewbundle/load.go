@@ -163,6 +163,13 @@ func LoadScanManifest(reader io.Reader) (*ScanManifest, error) {
 		if manifest.Bundles[index].BundleID != computedID {
 			return nil, fmt.Errorf("invalid scan manifest schema: bundle %d bundle_id does not match bundle content", index)
 		}
+		encodedBundle, err := json.Marshal(&manifest.Bundles[index])
+		if err != nil {
+			return nil, fmt.Errorf("marshal scan bundle %d: %w", index, err)
+		}
+		if err := validateBundleDocument(encodedBundle); err != nil {
+			return nil, fmt.Errorf("invalid scan manifest schema: bundle %d: %w", index, err)
+		}
 	}
 	computedID, err := computeManifestID(&manifest)
 	if err != nil {

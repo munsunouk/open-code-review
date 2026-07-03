@@ -141,32 +141,40 @@ func loadAgentInputs(bundlePath, commentsPath string) (*reviewbundle.Bundle, *re
 }
 
 func loadAgentBundleByID(path, bundleID string) (*reviewbundle.Bundle, error) {
+	bundle, _, err := loadAgentBundleInputByID(path, bundleID)
+	return bundle, err
+}
+
+func loadAgentBundleInputByID(
+	path string,
+	bundleID string,
+) (*reviewbundle.Bundle, *reviewbundle.ScanManifest, error) {
 	content, err := reviewbundle.ReadProtocolFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read bundle: %w", err)
+		return nil, nil, fmt.Errorf("read bundle: %w", err)
 	}
 	bundle, bundleErr := reviewbundle.LoadBundle(bytes.NewReader(content))
 	if bundleErr == nil {
 		if bundle.BundleID != bundleID {
-			return nil, fmt.Errorf(
+			return nil, nil, fmt.Errorf(
 				"bundle at %q has bundle_id %q, comments require %q",
 				path,
 				bundle.BundleID,
 				bundleID,
 			)
 		}
-		return bundle, nil
+		return bundle, nil, nil
 	}
 	manifest, manifestErr := reviewbundle.LoadScanManifest(bytes.NewReader(content))
 	if manifestErr != nil {
-		return nil, bundleErr
+		return nil, nil, bundleErr
 	}
 	for index := range manifest.Bundles {
 		if manifest.Bundles[index].BundleID == bundleID {
-			return &manifest.Bundles[index], nil
+			return &manifest.Bundles[index], manifest, nil
 		}
 	}
-	return nil, fmt.Errorf("bundle_id %q is not present in scan manifest", bundleID)
+	return nil, nil, fmt.Errorf("bundle_id %q is not present in scan manifest", bundleID)
 }
 
 func loadValidationResult(path string) (*reviewbundle.ValidationResult, error) {

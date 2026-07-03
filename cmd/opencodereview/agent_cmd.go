@@ -244,31 +244,48 @@ func executeAgentPrepare(
 	if err != nil {
 		return fmt.Errorf("prepare agent review bundle: %w", err)
 	}
-	if err := recordAgentEvent(
-		repoDir,
-		options.sessionID,
-		bundle.BundleID,
-		"prepare",
-		session.AgentEvent{
-			Files:      bundle.Summary.ReviewableFiles,
-			Warnings:   len(bundle.Warnings),
-			DurationMS: time.Since(started).Milliseconds(),
-		},
-		false,
-	); err != nil {
-		return err
+	event := session.AgentEvent{
+		Files:      bundle.Summary.ReviewableFiles,
+		Warnings:   len(bundle.Warnings),
+		DurationMS: time.Since(started).Milliseconds(),
 	}
 	if options.preview {
 		writeAgentPreview(writer, bundle)
+		recordAgentEventBestEffort(repoDir, options.sessionID, bundle.BundleID, "prepare", event, false)
 		return nil
 	}
 	if options.outputPath != "" {
-		return writePrivateFile(options.outputPath, encoded)
+		if err := writePrivateFile(options.outputPath, encoded); err != nil {
+			return err
+		}
+		recordAgentEventBestEffort(repoDir, options.sessionID, bundle.BundleID, "prepare", event, false)
+		return nil
 	}
 	if _, err := writer.Write(append(encoded, '\n')); err != nil {
 		return fmt.Errorf("write review bundle: %w", err)
 	}
+	recordAgentEventBestEffort(repoDir, options.sessionID, bundle.BundleID, "prepare", event, false)
 	return nil
+}
+
+func recordAgentEventBestEffort(
+	repoDir string,
+	sessionID string,
+	bundleID string,
+	event string,
+	details session.AgentEvent,
+	finalize bool,
+) {
+	if err := recordAgentEvent(
+		repoDir,
+		sessionID,
+		bundleID,
+		event,
+		details,
+		finalize,
+	); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: agent session not recorded: %v\n", err)
+	}
 }
 
 func executeAgentDiffPartition(
@@ -296,20 +313,11 @@ func executeAgentDiffPartition(
 	if err != nil {
 		return fmt.Errorf("prepare partitioned agent review: %w", err)
 	}
-	if err := recordAgentEvent(
-		repoDir,
-		options.sessionID,
-		manifest.ManifestID,
-		"prepare.diff_manifest",
-		session.AgentEvent{
-			Files:      manifest.Summary.ReviewableFiles,
-			Warnings:   len(manifest.Warnings),
-			Partial:    manifest.Partial,
-			DurationMS: time.Since(started).Milliseconds(),
-		},
-		false,
-	); err != nil {
-		return err
+	event := session.AgentEvent{
+		Files:      manifest.Summary.ReviewableFiles,
+		Warnings:   len(manifest.Warnings),
+		Partial:    manifest.Partial,
+		DurationMS: time.Since(started).Milliseconds(),
 	}
 	if options.preview {
 		fmt.Fprintf(
@@ -318,13 +326,21 @@ func executeAgentDiffPartition(
 			manifest.Summary.TotalFiles,
 			len(manifest.Bundles),
 		)
+		recordAgentEventBestEffort(repoDir, options.sessionID, manifest.ManifestID, "prepare.diff_manifest", event, false)
 		return nil
 	}
 	if options.outputPath != "" {
-		return writePrivateFile(options.outputPath, encoded)
+		if err := writePrivateFile(options.outputPath, encoded); err != nil {
+			return err
+		}
+		recordAgentEventBestEffort(repoDir, options.sessionID, manifest.ManifestID, "prepare.diff_manifest", event, false)
+		return nil
 	}
-	_, err = writer.Write(append(encoded, '\n'))
-	return err
+	if _, err := writer.Write(append(encoded, '\n')); err != nil {
+		return err
+	}
+	recordAgentEventBestEffort(repoDir, options.sessionID, manifest.ManifestID, "prepare.diff_manifest", event, false)
+	return nil
 }
 
 func executeAgentScanPrepare(
@@ -348,36 +364,15 @@ func executeAgentScanPrepare(
 		BatchStrategy:    options.batchStrategy,
 		BatchSize:        options.batchSize,
 	}
-	var outputFile *os.File
-	if options.outputPath != "" && !options.preview {
-		file, err := os.OpenFile(options.outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-		if err != nil {
-			return fmt.Errorf("open scan manifest output %s: %w", options.outputPath, err)
-		}
-		outputFile = file
-		scanOptions.EncodedWriter = file
-	}
 	manifest, encoded, err := reviewbundle.PrepareScan(ctx, scanOptions)
-	if closeErr := closeAgentOutputFile(outputFile); closeErr != nil && err == nil {
-		err = closeErr
-	}
 	if err != nil {
 		return fmt.Errorf("prepare agent scan manifest: %w", err)
 	}
-	if err := recordAgentEvent(
-		repoDir,
-		options.sessionID,
-		manifest.ManifestID,
-		"prepare.scan",
-		session.AgentEvent{
-			Files:      manifest.Summary.ReviewableFiles,
-			Warnings:   len(manifest.Warnings),
-			Partial:    manifest.Partial,
-			DurationMS: time.Since(started).Milliseconds(),
-		},
-		false,
-	); err != nil {
-		return err
+	event := session.AgentEvent{
+		Files:      manifest.Summary.ReviewableFiles,
+		Warnings:   len(manifest.Warnings),
+		Partial:    manifest.Partial,
+		DurationMS: time.Since(started).Milliseconds(),
 	}
 	if options.preview {
 		fmt.Fprintf(
@@ -392,26 +387,24 @@ func executeAgentScanPrepare(
 		for _, skipped := range manifest.SkippedFiles {
 			fmt.Fprintf(writer, "  skip:%-16s %s\n", skipped.Reason, sanitizeTerminal(skipped.Path))
 		}
+		recordAgentEventBestEffort(repoDir, options.sessionID, manifest.ManifestID, "prepare.scan", event, false)
 		return nil
 	}
 	if options.outputPath != "" {
-		if outputFile != nil {
-			return nil
+		if err := writePrivateFile(options.outputPath, encoded); err != nil {
+			return err
 		}
-		return writePrivateFile(options.outputPath, encoded)
+		recordAgentEventBestEffort(repoDir, options.sessionID, manifest.ManifestID, "prepare.scan", event, false)
+		return nil
 	}
 	if len(encoded) == 0 {
 		return fmt.Errorf("scan manifest encoding is empty")
 	}
-	_, err = writer.Write(append(encoded, '\n'))
-	return err
-}
-
-func closeAgentOutputFile(file *os.File) error {
-	if file == nil {
-		return nil
+	if _, err := writer.Write(append(encoded, '\n')); err != nil {
+		return err
 	}
-	return file.Close()
+	recordAgentEventBestEffort(repoDir, options.sessionID, manifest.ManifestID, "prepare.scan", event, false)
+	return nil
 }
 
 func recordAgentEvent(

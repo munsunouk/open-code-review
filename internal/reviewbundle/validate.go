@@ -110,6 +110,27 @@ func ValidateComments(
 	return result
 }
 
+// ValidateScanManifestFreshness extends a selected scan-bundle validation with
+// the sibling files that share the same manifest-level scan target.
+func ValidateScanManifestFreshness(
+	result *ValidationResult,
+	manifest *ScanManifest,
+	selectedBundleID string,
+	repoDir string,
+) {
+	if result == nil || manifest == nil || repoDir == "" {
+		return
+	}
+	for index := range manifest.Bundles {
+		bundle := &manifest.Bundles[index]
+		if bundle.BundleID == selectedBundleID {
+			continue
+		}
+		validateFreshScanFiles(result, bundle.Files, repoDir)
+	}
+	result.Valid = len(result.Errors) == 0
+}
+
 func validateFreshTarget(
 	ctx context.Context,
 	result *ValidationResult,
@@ -118,18 +139,7 @@ func validateFreshTarget(
 	runner *gitcmd.Runner,
 ) {
 	if bundle.Target.Mode == TargetScan {
-		for _, file := range bundle.Files {
-			digest, err := hashScanTargetFileAtPath(repoDir, file.Path)
-			if err != nil || digest != file.ContentSHA256 {
-				addValidationError(
-					result,
-					"stale_bundle",
-					file.Path,
-					nil,
-					"scan file changed after bundle creation",
-				)
-			}
-		}
+		validateFreshScanFiles(result, bundle.Files, repoDir)
 		return
 	}
 	if runner == nil {
@@ -155,6 +165,21 @@ func validateFreshTarget(
 	}
 	if stale {
 		addValidationError(result, "stale_bundle", "", nil, "review target changed after bundle creation")
+	}
+}
+
+func validateFreshScanFiles(result *ValidationResult, files []File, repoDir string) {
+	for _, file := range files {
+		digest, err := hashScanTargetFileAtPath(repoDir, file.Path)
+		if err != nil || digest != file.ContentSHA256 {
+			addValidationError(
+				result,
+				"stale_bundle",
+				file.Path,
+				nil,
+				"scan file changed after bundle creation",
+			)
+		}
 	}
 }
 
@@ -247,6 +272,18 @@ func validateCommentContent(
 	}
 	if comment.ExistingCode == "" {
 		return
+	}
+	if comment.FileLevelComment {
+		switch count := countStandaloneSnippet(content, comment.ExistingCode); {
+		case count == 1:
+			return
+		case count > 1:
+			addValidationError(result, "ambiguous_existing_code", path, &index, "existing_code occurs more than once")
+			return
+		default:
+			addValidationError(result, "existing_code_mismatch", path, &index, "existing_code does not match the target file")
+			return
+		}
 	}
 	if comment.StartLine >= 1 && comment.EndLine <= len(lines) {
 		selected := strings.Join(lines[comment.StartLine-1:comment.EndLine], "\n")

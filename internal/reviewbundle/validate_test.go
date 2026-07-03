@@ -211,6 +211,44 @@ func TestLoadScanManifestRejectsTamperedNestedBundleID(t *testing.T) {
 	}
 }
 
+func TestLoadScanManifestRejectsMalformedNestedBundle(t *testing.T) {
+	bundle := validIdentifiedBundle(t)
+	bundle.Target.Mode = ""
+	bundle.Contract = Contract{}
+	bundle.BundleID = ""
+	bundleID, err := computeBundleID(bundle)
+	if err != nil {
+		t.Fatalf("compute bundle id: %v", err)
+	}
+	bundle.BundleID = bundleID
+	manifest := &ScanManifest{
+		SchemaVersion:   ScanManifestSchemaVersion,
+		Root:            "/tmp/repo",
+		TargetHash:      "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		BatchStrategy:   "none",
+		BatchSize:       1,
+		EstimatedTokens: 0,
+		Summary:         bundle.Summary,
+		Partial:         false,
+		SkippedFiles:    []ScanSkippedFile{},
+		Bundles:         []Bundle{*bundle},
+	}
+	manifestID, err := computeManifestID(manifest)
+	if err != nil {
+		t.Fatalf("compute manifest id: %v", err)
+	}
+	manifest.ManifestID = manifestID
+	encoded, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+
+	_, err = LoadScanManifest(strings.NewReader(string(encoded)))
+	if err == nil || !strings.Contains(err.Error(), "bundle 0") {
+		t.Fatalf("LoadScanManifest(malformed nested bundle) error = %v, want nested bundle schema error", err)
+	}
+}
+
 func TestValidateCommentsRejectsProtocolAndEvidenceErrors(t *testing.T) {
 	bundle := validationBundle()
 	comments := &Comments{
@@ -313,6 +351,42 @@ func TestValidateCommentsWarnsOutsideChangedHunk(t *testing.T) {
 		t.Fatalf("ValidateComments() errors = %#v", result.Errors)
 	}
 	assertValidationCode(t, result.Warnings, "outside_changed_hunk")
+}
+
+func TestValidateCommentsAcceptsUniqueExistingCodeForFileLevelComment(t *testing.T) {
+	repository := t.TempDir()
+	content := "package sample\n\nconst bad = 1\n"
+	writeTargetFile(t, repository, "main.go", content)
+	bundle := validationBundle()
+	bundle.Target = Target{
+		Mode:       TargetScan,
+		DiffSHA256: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+	}
+	bundle.Files[0].ContentSHA256 = hashFields([]byte(content))
+	bundle.Files[0].Hunks = []Hunk{}
+	comments := &Comments{
+		SchemaVersion: CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       CommentsSummary{FilesReviewed: 1, IssuesFound: 1},
+		Comments: []ReviewComment{{
+			Path:             "main.go",
+			StartLine:        0,
+			EndLine:          0,
+			Priority:         "medium",
+			Category:         "bug",
+			Title:            "file level",
+			Content:          "file level issue",
+			Recommendation:   "fix it",
+			ExistingCode:     "const bad = 1",
+			Confidence:       0.9,
+			FileLevelComment: true,
+		}},
+	}
+
+	result := ValidateComments(context.Background(), bundle, comments, repository, gitcmd.New(1))
+	if !result.Valid {
+		t.Fatalf("ValidateComments() errors = %#v", result.Errors)
+	}
 }
 
 func TestValidateCommentsRejectsCheapEnvelopeErrors(t *testing.T) {
