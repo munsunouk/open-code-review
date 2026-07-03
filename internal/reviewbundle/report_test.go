@@ -60,7 +60,7 @@ func TestReportJSONPreservesCommentsProtocol(t *testing.T) {
 	}
 }
 
-func TestReportIncludesValidationFailures(t *testing.T) {
+func TestReportRejectsInvalidValidation(t *testing.T) {
 	bundle := validationBundle()
 	comments := &Comments{
 		SchemaVersion: CommentsSchemaVersion,
@@ -79,18 +79,13 @@ func TestReportIncludesValidationFailures(t *testing.T) {
 			Code: "outside_changed_hunk", Message: "line is outside changed hunk",
 		}},
 	}
-	report, err := RenderReport(
+	_, err := RenderReport(
 		bundle,
 		comments,
 		ReportOptions{Format: "text", Validation: validation},
 	)
-	if err != nil {
-		t.Fatalf("RenderReport() error = %v", err)
-	}
-	if !strings.Contains(string(report), "INVALID") ||
-		!strings.Contains(string(report), "stale_bundle") ||
-		!strings.Contains(string(report), "outside_changed_hunk") {
-		t.Fatalf("report missing validation failure:\n%s", report)
+	if err == nil || !strings.Contains(err.Error(), "validation failed") {
+		t.Fatalf("RenderReport() error = %v, want validation failure", err)
 	}
 }
 
@@ -141,5 +136,30 @@ func TestReportEscapesBackticksAndTextWarnings(t *testing.T) {
 	}
 	if !strings.Contains(string(text), "WARNING partial") {
 		t.Fatalf("text report missing warnings:\n%s", text)
+	}
+}
+
+func TestReportMarkdownEscapesHeadingInjectionInBody(t *testing.T) {
+	bundle := validationBundle()
+	comments := &Comments{
+		SchemaVersion: CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       CommentsSummary{FilesReviewed: 1, IssuesFound: 1},
+		Comments: []ReviewComment{{
+			Path: "main.go", StartLine: 1, EndLine: 1,
+			Priority: "high", Category: "bug", Title: "Injected heading",
+			Content: "# Fake section\nbody", Recommendation: "# Also fake", Confidence: 1,
+		}},
+	}
+	report, err := RenderReport(bundle, comments, ReportOptions{Format: "markdown"})
+	if err != nil {
+		t.Fatalf("RenderReport() error = %v", err)
+	}
+	text := string(report)
+	if strings.Contains(text, "\n# Fake section\n") || strings.Contains(text, "Recommendation: # Also fake") {
+		t.Fatalf("markdown report did not escape heading injection:\n%s", text)
+	}
+	if !strings.Contains(text, `\# Fake section`) || !strings.Contains(text, `Recommendation: \# Also fake`) {
+		t.Fatalf("markdown report missing escaped headings:\n%s", text)
 	}
 }

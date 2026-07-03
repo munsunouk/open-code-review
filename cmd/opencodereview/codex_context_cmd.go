@@ -58,7 +58,7 @@ func runCodexContextForCommand(
 	if loadErr != nil {
 		manifest, manifestErr := reviewbundle.LoadScanManifest(bytes.NewReader(bundleContent))
 		if manifestErr != nil {
-			return loadErr
+			return fmt.Errorf("open bundle: %w", manifestErr)
 		}
 		if options.bundleIndex < 0 || options.bundleIndex >= len(manifest.Bundles) {
 			return fmt.Errorf("--bundle-index must select one of %d scan bundles", len(manifest.Bundles))

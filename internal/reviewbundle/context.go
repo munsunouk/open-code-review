@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/open-code-review/open-code-review/internal/gitcmd"
 	"github.com/open-code-review/open-code-review/internal/tool"
@@ -22,10 +23,12 @@ type ContextResult struct {
 
 // ContextService exposes target-aware read-only repository tools.
 type ContextService struct {
-	repoDir   string
-	bundle    *Bundle
-	runner    *gitcmd.Runner
-	reader *tool.FileReader
+	repoDir  string
+	bundle   *Bundle
+	runner   *gitcmd.Runner
+	reader   *tool.FileReader
+	readyMu  sync.Mutex
+	readyOk  bool
 }
 
 // NewContextService binds all subsequent operations to one bundle identity.
@@ -387,17 +390,33 @@ func scanPatternMatches(path string, patterns []string) bool {
 }
 
 func (service *ContextService) ready(ctx context.Context) error {
+	service.readyMu.Lock()
+	if service.readyOk {
+		service.readyMu.Unlock()
+		return nil
+	}
+	service.readyMu.Unlock()
+
 	if service.bundle == nil {
 		return fmt.Errorf("bundle is required")
 	}
 	if service.repoDir == "" {
 		return fmt.Errorf("repository directory is required")
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	result := ValidationResult{Errors: make([]ValidationNotice, 0)}
 	validateFreshTarget(ctx, &result, service.bundle, service.repoDir, service.runner)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if len(result.Errors) > 0 {
 		return &ProtocolError{Code: "stale_bundle", Message: result.Errors[0].Message}
 	}
+	service.readyMu.Lock()
+	service.readyOk = true
+	service.readyMu.Unlock()
 	return nil
 }
 

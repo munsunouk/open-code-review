@@ -25,6 +25,12 @@ func RenderReport(bundle *Bundle, comments *Comments, options ReportOptions) ([]
 	if options.Validation != nil && options.Validation.BundleID != bundle.BundleID {
 		return nil, fmt.Errorf("validation bundle_id mismatch")
 	}
+	if options.Validation != nil && !options.Validation.Valid {
+		return nil, fmt.Errorf(
+			"validation failed with %d error(s); resolve them before rendering a report",
+			len(options.Validation.Errors),
+		)
+	}
 	sorted := sortedComments(comments)
 	switch options.Format {
 	case "json":
@@ -94,6 +100,7 @@ func renderMarkdownReport(
 	)
 	fmt.Fprintf(&output, "- Findings: %d\n", len(comments.Comments))
 	writeMarkdownValidation(&output, validation)
+	writeMarkdownNotices(&output, "Bundle warnings", bundle.Warnings)
 	if len(comments.Comments) == 0 {
 		fmt.Fprintln(&output)
 		fmt.Fprintln(&output, "No findings.")
@@ -113,10 +120,11 @@ func renderMarkdownReport(
 				comment.Category,
 				comment.Confidence,
 			)
-			fmt.Fprintln(&output, comment.Content)
+			writeMarkdownBody(&output, comment.Content)
 			if comment.Recommendation != "" {
 				fmt.Fprintln(&output)
-				fmt.Fprintf(&output, "Recommendation: %s\n", comment.Recommendation)
+				fmt.Fprint(&output, "Recommendation: ")
+				writeMarkdownBody(&output, comment.Recommendation)
 			}
 			if comment.ExistingCode != "" {
 				fmt.Fprintln(&output)
@@ -180,6 +188,12 @@ func renderTextReport(
 ) []byte {
 	var output bytes.Buffer
 	fmt.Fprintf(&output, "Agent Code Review\nBundle: %s\nFindings: %d\n", bundle.BundleID, len(comments.Comments))
+	if len(bundle.Warnings) > 0 {
+		fmt.Fprintln(&output, "Bundle warnings:")
+		for _, notice := range bundle.Warnings {
+			fmt.Fprintf(&output, "WARNING %s: %s\n", notice.Code, notice.Message)
+		}
+	}
 	if validation == nil {
 		fmt.Fprintln(&output, "Validation: not supplied")
 	} else if validation.Valid {
@@ -242,6 +256,25 @@ func markdownCode(value string) string {
 
 func escapeMarkdownHeading(value string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(value, "\n", " "), "#", "\\#")
+}
+
+func escapeMarkdownBody(value string) string {
+	lines := strings.Split(value, "\n")
+	for index, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			lines[index] = strings.Replace(line, "#", "\\#", 1)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func writeMarkdownBody(output *bytes.Buffer, value string) {
+	if strings.Contains(value, "```") {
+		writeFencedCode(output, value)
+		return
+	}
+	fmt.Fprintln(output, escapeMarkdownBody(value))
 }
 
 func writeFencedCode(output *bytes.Buffer, code string) {
