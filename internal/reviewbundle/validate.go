@@ -119,8 +119,8 @@ func validateFreshTarget(
 ) {
 	if bundle.Target.Mode == TargetScan {
 		for _, file := range bundle.Files {
-			content, err := readTargetFile(ctx, bundle, repoDir, file.Path, runner)
-			if err != nil || hashFields(content) != file.ContentSHA256 {
+			digest, err := hashScanTargetFileAtPath(repoDir, file.Path)
+			if err != nil || digest != file.ContentSHA256 {
 				addValidationError(
 					result,
 					"stale_bundle",
@@ -316,18 +316,9 @@ func readTargetFile(
 			bundle.Target.HeadSHA+":"+path,
 		)
 	}
-	root, err := filepath.EvalSymlinks(repoDir)
+	resolved, err := resolveScanTargetPath(repoDir, path)
 	if err != nil {
 		return nil, err
-	}
-	full := filepath.Join(root, filepath.FromSlash(path))
-	resolved, err := filepath.EvalSymlinks(full)
-	if err != nil {
-		return nil, err
-	}
-	relative, err := filepath.Rel(root, resolved)
-	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return nil, fmt.Errorf("resolved path escapes repository")
 	}
 	return os.ReadFile(resolved)
 }
