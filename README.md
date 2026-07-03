@@ -286,7 +286,7 @@ Use `npx` to install the OCR skill into your project:
 npx skills add alibaba/open-code-review --skill open-code-review
 ```
 
-This installs the `open-code-review` skill from the [skills registry](skills/open-code-review/SKILL.md), which teaches your coding agent how to invoke `ocr` for code review, classify issues by priority, and optionally apply fixes.
+This installs the `open-code-review` skill from the [skills registry](skills/open-code-review/SKILL.md). The host agent owns review reasoning; OCR supplies deterministic `ocr agent prepare`, context, validation, and report tooling. The host-agent path does not require OCR's LLM provider or API key. Legacy `ocr review` and `ocr scan` remain available only when explicitly requested.
 
 #### Option 2: Install as a Claude Code Plugin
 
@@ -297,7 +297,7 @@ For [Claude Code](https://docs.anthropic.com/en/docs/claude-code), install the c
 /plugin install open-code-review@open-code-review
 ```
 
-This registers the `/open-code-review:review` slash command, which runs OCR and automatically filters and fixes issues.
+This registers the `/open-code-review:review` slash command for the host-agent workflow: `ocr agent prepare` → review → `validate-comments` → `report`. The active agent performs reasoning and reporting; OCR provides deterministic evidence. Fixes run only when you explicitly request them.
 
 #### Option 3: Install as a Codex Plugin
 

@@ -1,7 +1,7 @@
 {
   "name": "open-code-review",
   "version": "2.0.0",
-  "description": "Codex-owned code reviews using OCR deterministic context tooling.",
+  "description": "Host-agent code reviews using OCR deterministic context tooling.",
   "author": {
     "name": "Alibaba"
   },
@@ -17,8 +17,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Open Code Review",
-    "shortDescription": "Codex-owned reviews with OCR context tooling.",
-    "longDescription": "Codex performs review reasoning while OCR provides deterministic diff, scan, rule, context, validation, report, and session services.",
+    "shortDescription": "Host-agent reviews with OCR context tooling.",
+    "longDescription": "The host agent performs review reasoning while OCR provides deterministic diff, scan, rule, context, validation, report, and session services.",
     "developerName": "Alibaba",
     "category": "Developer Tools",
     "capabilities": [

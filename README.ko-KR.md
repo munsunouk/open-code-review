@@ -286,7 +286,7 @@ OCR은 AI coding agent에 slash command로 자연스럽게 통합할 수 있으�
 npx skills add alibaba/open-code-review --skill open-code-review
 ```
 
-이 명령은 [skills registry](skills/open-code-review/SKILL.md)의 `open-code-review` skill을 설치합니다. 이 skill은 coding agent가 `ocr`을 호출해 코드 리뷰를 수행하고, issue를 우선순위별로 분류하며, 필요한 경우 fix를 적용하는 방법을 알려줍니다.
+이 명령은 [skills registry](skills/open-code-review/SKILL.md)의 `open-code-review` skill을 설치합니다. host agent가 리뷰 reasoning을 담당하고, OCR은 `ocr agent prepare`, context, validation, report 같은 deterministic tooling을 제공합니다. host-agent 경로는 OCR LLM provider나 API key가 필요 없습니다. legacy `ocr review`와 `ocr scan`은 명시적으로 요청할 때만 사용합니다.
 
 #### Option 2: Claude Code Plugin으로 설치
 
@@ -297,7 +297,7 @@ npx skills add alibaba/open-code-review --skill open-code-review
 /plugin install open-code-review@open-code-review
 ```
 
-이렇게 하면 OCR을 실행하고 issue를 자동으로 필터링 및 수정하는 `/open-code-review:review` slash command가 등록됩니다.
+이렇게 하면 host-agent workflow용 `/open-code-review:review` slash command가 등록됩니다: `ocr agent prepare` → review → `validate-comments` → `report`. active agent가 reasoning과 reporting을 수행하고 OCR은 deterministic evidence를 제공합니다. fix는 명시적으로 요청할 때만 실행됩니다.
 
 #### Option 3: Codex Plugin으로 설치
 
