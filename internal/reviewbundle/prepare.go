@@ -86,6 +86,8 @@ func prepareBundleCore(ctx context.Context, options PrepareOptions) (*Bundle, er
 	if err != nil {
 		return nil, fmt.Errorf("load target diffs: %w", err)
 	}
+	filtered, oversizedWarnings := filterOversizedDiffs(changes, DefaultReviewMaxTokens)
+	changes = filtered
 
 	bundle := &Bundle{
 		SchemaVersion:  BundleSchemaVersion,
@@ -94,6 +96,7 @@ func prepareBundleCore(ctx context.Context, options PrepareOptions) (*Bundle, er
 		Rules:          make(map[string]Rule),
 		Files:          make([]File, 0, len(changes)),
 		Contract:       DefaultContract(),
+		Warnings:       oversizedWarnings,
 	}
 	bundle.Contract.MaxBundleBytes = maxBundleSize
 	buildBundleEvidence(bundle, changes, detailResolver, options.FileFilter)

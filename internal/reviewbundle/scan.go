@@ -92,8 +92,14 @@ func PrepareScan(ctx context.Context, options ScanOptions) (*ScanManifest, []byt
 		})
 	}
 	manifest.Summary.TotalFiles = len(items) + len(providerSkipped)
-	included, budgetTruncated := filterAndBudgetScanItems(ctx, manifest, items, options)
-	manifest.EstimatedTokens = scan.EstimateTokens(included, true, true, true).TotalTokens
+	filteredItems, oversizedSkipped := filterOversizedScanItems(items, DefaultReviewMaxTokens)
+	manifest.SkippedFiles = append(manifest.SkippedFiles, oversizedSkipped...)
+	included, budgetTruncated, err := filterAndBudgetScanItems(ctx, manifest, filteredItems, options)
+	if err != nil {
+		manifest.Partial = true
+		return nil, nil, err
+	}
+	manifest.EstimatedTokens = scan.EstimateTokens(included, false, false, false).TotalTokens
 	manifest.Summary.ReviewableFiles = len(included)
 	manifest.Summary.ExcludedFiles = manifest.Summary.TotalFiles - len(included)
 	for _, item := range included {
@@ -142,7 +148,7 @@ func filterAndBudgetScanItems(
 	manifest *ScanManifest,
 	items []model.ScanItem,
 	options ScanOptions,
-) ([]model.ScanItem, bool) {
+) ([]model.ScanItem, bool, error) {
 	if options.MaxTokenBudget > 0 {
 		sort.SliceStable(items, func(i, j int) bool {
 			left := scan.EstimateItemTokens(items[i], true)
@@ -159,7 +165,7 @@ func filterAndBudgetScanItems(
 	for _, item := range items {
 		select {
 		case <-ctx.Done():
-			return included, budgetTruncated
+			return included, budgetTruncated || len(included) < len(items), ctx.Err()
 		default:
 		}
 		reason := scan.ExcludeReason(item, options.FileFilter)
@@ -181,7 +187,7 @@ func filterAndBudgetScanItems(
 		included = append(included, item)
 	}
 	sort.Slice(included, func(i, j int) bool { return included[i].Path < included[j].Path })
-	return included, budgetTruncated
+	return included, budgetTruncated, nil
 }
 
 func appendScanBundles(
