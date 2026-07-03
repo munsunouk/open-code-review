@@ -214,10 +214,20 @@ function testExistingReviewRetryHasGuard(workflowPath) {
   );
 }
 
+function testSummaryTagIsStable(workflowPath) {
+  const content = fs.readFileSync(workflowPath, "utf8");
+  assert.ok(
+    !content.includes("SUMMARY_NONCE") &&
+      content.includes("const SUMMARY_TAG = `<!-- ocr-summary-run:${RUN_TAG} -->`;"),
+    "summary idempotency tag should be stable for a run attempt"
+  );
+}
+
 async function main() {
   testSummaryTagIdempotencyMatcher();
   for (const workflowPath of workflowFiles) {
     testExistingReviewRetryHasGuard(workflowPath);
+    testSummaryTagIsStable(workflowPath);
     await testFailedInlineCommentsAreSummarized(workflowPath);
     await testErrorCommentUsesSafeFence(workflowPath);
   }

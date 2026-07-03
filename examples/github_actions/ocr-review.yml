@@ -179,9 +179,8 @@ jobs:
             const runId = Number.isFinite(context.runId) ? context.runId : 0;
             const runAttempt = Number.isFinite(context.runAttempt) ? context.runAttempt : 1;
             const RUN_TAG = `${runId}-${runAttempt}`;
-            const SUMMARY_NONCE = crypto.randomBytes(16).toString('hex');
             const REVIEW_TAG = `<!-- ocr-review-run:${RUN_TAG} -->`;
-            const SUMMARY_TAG = `<!-- ocr-summary-run:${RUN_TAG}:${SUMMARY_NONCE} -->`;
+            const SUMMARY_TAG = `<!-- ocr-summary-run:${RUN_TAG} -->`;
 
             // Read OCR output
             let result;

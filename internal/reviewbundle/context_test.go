@@ -154,6 +154,35 @@ func TestScanContextStaysInsideBundle(t *testing.T) {
 	}
 }
 
+func TestScanContextReadReportsRequestedRangeTruncation(t *testing.T) {
+	repository := t.TempDir()
+	content := strings.Join([]string{"line 1", "line 2", "line 3"}, "\n") + "\n"
+	if err := os.WriteFile(filepath.Join(repository, "only.txt"), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bundle := &Bundle{
+		SchemaVersion: BundleSchemaVersion,
+		BundleID:      "sha256:scan",
+		Target:        Target{Mode: TargetScan},
+		Files: []File{{
+			Path:          "only.txt",
+			Reviewable:    true,
+			Content:       content,
+			ContentSHA256: hashFields([]byte(content)),
+		}},
+		Contract: DefaultContract(),
+	}
+	service := NewContextService(repository, bundle, gitcmd.New(2))
+
+	read, err := service.Read(context.Background(), "only.txt", 1, 1)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
+	if !strings.Contains(read.Result, "IS_TRUNCATED: true") {
+		t.Fatalf("Read() = %q, want requested range truncation", read.Result)
+	}
+}
+
 func TestScanContextSearchRejectsPerlRegexp(t *testing.T) {
 	repository := t.TempDir()
 	content := "package sample\n\nfunc InBundle() {}\n"

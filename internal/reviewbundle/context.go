@@ -237,7 +237,7 @@ func (service *ContextService) readScanFile(path string, startLine int, maxLines
 	if end > totalLines {
 		end = totalLines
 	}
-	truncated := totalLines-(startLine-1) > 500
+	truncated := end < totalLines
 	displayEnd := startLine - 1
 	if end > startLine-1 {
 		displayEnd = end
