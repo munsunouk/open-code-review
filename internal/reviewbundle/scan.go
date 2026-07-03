@@ -107,6 +107,9 @@ func PrepareScan(ctx context.Context, options ScanOptions) (*ScanManifest, []byt
 	}
 	manifest.Partial = budgetTruncated || len(manifest.SkippedFiles) > 0 || len(included) == 0
 	manifest.TargetHash = hashScanItems(included)
+	if len(included) == 0 && len(manifest.SkippedFiles) == 0 {
+		return nil, nil, &ProtocolError{Code: "empty_target", Message: "no reviewable scan files found"}
+	}
 
 	batches := scan.GroupBatches(
 		included,
@@ -219,6 +222,9 @@ func appendScanBundles(
 				Path:   items[0].Path,
 				Reason: "bundle_too_large",
 			})
+			manifest.Summary.ReviewableFiles--
+			manifest.Summary.ExcludedFiles++
+			manifest.Summary.Insertions -= int64(items[0].LineCount)
 			manifest.Partial = true
 			return nil
 		}

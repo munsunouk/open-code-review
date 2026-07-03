@@ -2,8 +2,10 @@ package reviewbundle
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/open-code-review/open-code-review/internal/config/rules"
@@ -121,6 +123,49 @@ func TestPrepareScanReportsOversizedFiles(t *testing.T) {
 		manifest.SkippedFiles[0].Path != "large.go" ||
 		manifest.SkippedFiles[0].Reason != "file_size" {
 		t.Fatalf("manifest = %+v", manifest)
+	}
+}
+
+func TestPrepareScanAdjustsSummaryForBundleSizeSkips(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.WriteFile(
+		filepath.Join(directory, "large.go"),
+		[]byte("package sample\n// "+strings.Repeat("x", 1024)+"\n"),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	manifest, _, err := PrepareScan(context.Background(), ScanOptions{
+		RepoDir:       directory,
+		Paths:         []string{"large.go"},
+		Resolver:      detailResolverStub{},
+		GitRunner:     gitcmd.New(1),
+		MaxBundleSize: 128,
+	})
+	if err != nil {
+		t.Fatalf("PrepareScan() error = %v", err)
+	}
+	if !manifest.Partial || len(manifest.Bundles) != 0 ||
+		manifest.Summary.ReviewableFiles != 0 ||
+		manifest.Summary.ExcludedFiles != 1 ||
+		len(manifest.SkippedFiles) != 1 ||
+		manifest.SkippedFiles[0].Reason != "bundle_too_large" {
+		t.Fatalf("manifest = %+v, want bundle-size skip reflected in summary", manifest)
+	}
+}
+
+func TestPrepareScanRejectsEmptyTarget(t *testing.T) {
+	directory := t.TempDir()
+	_, _, err := PrepareScan(context.Background(), ScanOptions{
+		RepoDir:       directory,
+		Paths:         []string{"missing"},
+		Resolver:      detailResolverStub{},
+		GitRunner:     gitcmd.New(1),
+		MaxBundleSize: DefaultMaxBundleBytes,
+	})
+	var protocolError *ProtocolError
+	if !errors.As(err, &protocolError) || protocolError.Code != "empty_target" {
+		t.Fatalf("PrepareScan() error = %v, want empty_target", err)
 	}
 }
 

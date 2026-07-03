@@ -288,18 +288,25 @@ jobs:
               // retry all of them.
               let toRetry = reviewComments;
               if (existingReview && existingReview.found) {
-                const postedIds = await getPostedCommentIds({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  prNumber
-                });
-                toRetry = reviewComments.filter((item) =>
-                  !postedIds.has(item.id)
-                );
-                successCount = reviewComments.length - toRetry.length;
-                console.log(`Batch review already exists (review_id=${existingReview.review.id}). ` +
-                            `${successCount}/${reviewComments.length} inline comments already posted. ` +
-                            `${toRetry.length} missing, will retry only those.`);
+                try {
+                  const postedIds = await getPostedCommentIds({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    prNumber
+                  });
+                  toRetry = reviewComments.filter((item) =>
+                    !postedIds.has(item.id)
+                  );
+                  successCount = reviewComments.length - toRetry.length;
+                  console.log(`Batch review already exists (review_id=${existingReview.review.id}). ` +
+                              `${successCount}/${reviewComments.length} inline comments already posted. ` +
+                              `${toRetry.length} missing, will retry only those.`);
+                } catch (postedErr) {
+                  console.log(`Could not list posted review comments (${postedErr.message}). ` +
+                              `Skipping inline retry to avoid duplicates.`);
+                  toRetry = [];
+                  successCount = reviewComments.length;
+                }
               } else {
                 console.log('Batch review not found on server. Falling back to per-comment posting...');
               }

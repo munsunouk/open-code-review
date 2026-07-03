@@ -176,6 +176,26 @@ func TestPreparePartitionedSplitsLargeDiffWithoutDuplicates(t *testing.T) {
 	}
 }
 
+func TestPreparePartitionedReturnsPartialWhenEveryFileIsTooLarge(t *testing.T) {
+	repository := initPrepareRepository(t)
+	writeTargetFile(t, repository, "large.go", "package sample\n// "+strings.Repeat("x", 1024)+"\n")
+
+	manifest, _, err := PreparePartitioned(context.Background(), PrepareOptions{
+		RepoDir:       repository,
+		Resolver:      detailResolverStub{},
+		GitRunner:     gitcmd.New(2),
+		MaxBundleSize: 128,
+	})
+	if err != nil {
+		t.Fatalf("PreparePartitioned() error = %v", err)
+	}
+	if !manifest.Partial || len(manifest.Bundles) != 0 ||
+		len(manifest.SkippedFiles) != 1 ||
+		manifest.SkippedFiles[0].Reason != "bundle_too_large" {
+		t.Fatalf("manifest = %+v, want partial all-skipped manifest", manifest)
+	}
+}
+
 func TestPrepareRangeAndCommitUseRequestedTarget(t *testing.T) {
 	repository := initPrepareRepository(t)
 	base := strings.TrimSpace(runTargetGit(t, repository, "rev-parse", "HEAD"))

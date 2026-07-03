@@ -205,9 +205,19 @@ function testSummaryTagIdempotencyMatcher() {
   );
 }
 
+function testExistingReviewRetryHasGuard(workflowPath) {
+  const content = fs.readFileSync(workflowPath, "utf8");
+  assert.ok(
+    content.includes("Could not list posted review comments") &&
+      content.includes("Skipping inline retry to avoid duplicates"),
+    "existing-review retry path should guard getPostedCommentIds failures"
+  );
+}
+
 async function main() {
   testSummaryTagIdempotencyMatcher();
   for (const workflowPath of workflowFiles) {
+    testExistingReviewRetryHasGuard(workflowPath);
     await testFailedInlineCommentsAreSummarized(workflowPath);
     await testErrorCommentUsesSafeFence(workflowPath);
   }
