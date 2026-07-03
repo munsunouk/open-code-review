@@ -81,6 +81,28 @@ func ValidateComments(
 			"summary.issues_found must equal the number of comments",
 		)
 	}
+	commentedPaths := make(map[string]struct{})
+	for _, comment := range comments.Comments {
+		commentedPaths[comment.Path] = struct{}{}
+	}
+	if comments.Summary.FilesReviewed > bundle.Summary.ReviewableFiles {
+		addValidationError(
+			&result,
+			"invalid_summary",
+			"",
+			nil,
+			"summary.files_reviewed exceeds reviewable files in the bundle",
+		)
+	}
+	if comments.Summary.FilesReviewed < len(commentedPaths) {
+		addValidationError(
+			&result,
+			"invalid_summary",
+			"",
+			nil,
+			"summary.files_reviewed is less than the number of distinct commented paths",
+		)
+	}
 	result.Valid = len(result.Errors) == 0
 	return result
 }

@@ -391,12 +391,10 @@ func scanPatternMatches(path string, patterns []string) bool {
 
 func (service *ContextService) ready(ctx context.Context) error {
 	service.readyMu.Lock()
+	defer service.readyMu.Unlock()
 	if service.readyOk {
-		service.readyMu.Unlock()
 		return nil
 	}
-	service.readyMu.Unlock()
-
 	if service.bundle == nil {
 		return fmt.Errorf("bundle is required")
 	}
@@ -414,9 +412,7 @@ func (service *ContextService) ready(ctx context.Context) error {
 	if len(result.Errors) > 0 {
 		return &ProtocolError{Code: "stale_bundle", Message: result.Errors[0].Message}
 	}
-	service.readyMu.Lock()
 	service.readyOk = true
-	service.readyMu.Unlock()
 	return nil
 }
 

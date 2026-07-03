@@ -9,7 +9,7 @@ import (
 
 // LoadBundle strictly decodes one review bundle protocol document.
 func LoadBundle(reader io.Reader) (*Bundle, error) {
-	data, err := io.ReadAll(reader)
+	data, err := readLimited(reader)
 	if err != nil {
 		return nil, fmt.Errorf("read bundle: %w", err)
 	}
@@ -42,7 +42,7 @@ func LoadBundle(reader io.Reader) (*Bundle, error) {
 
 // LoadComments strictly decodes one external-comments protocol document.
 func LoadComments(reader io.Reader) (*Comments, error) {
-	data, err := io.ReadAll(reader)
+	data, err := readLimited(reader)
 	if err != nil {
 		return nil, fmt.Errorf("read comments: %w", err)
 	}
@@ -68,6 +68,13 @@ func LoadComments(reader io.Reader) (*Comments, error) {
 	}
 	if comments.Comments == nil {
 		return nil, fmt.Errorf("invalid comments schema: comments field is required and must be an array")
+	}
+	if comments.Summary.IssuesFound != len(comments.Comments) {
+		return nil, fmt.Errorf(
+			"invalid comments schema: summary.issues_found (%d) must equal len(comments) (%d)",
+			comments.Summary.IssuesFound,
+			len(comments.Comments),
+		)
 	}
 	return &comments, nil
 }
@@ -126,7 +133,7 @@ func validateCommentsShape(data []byte) error {
 
 // LoadScanManifest strictly decodes one full-file scan manifest.
 func LoadScanManifest(reader io.Reader) (*ScanManifest, error) {
-	data, err := io.ReadAll(reader)
+	data, err := readLimited(reader)
 	if err != nil {
 		return nil, fmt.Errorf("read scan manifest: %w", err)
 	}
