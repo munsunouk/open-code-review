@@ -92,14 +92,14 @@ func PrepareScan(ctx context.Context, options ScanOptions) (*ScanManifest, []byt
 		})
 	}
 	manifest.Summary.TotalFiles = len(items) + len(providerSkipped)
-	included, budgetTruncated := filterAndBudgetScanItems(manifest, items, options)
+	included, budgetTruncated := filterAndBudgetScanItems(ctx, manifest, items, options)
 	manifest.EstimatedTokens = scan.EstimateTokens(included, true, true, true).TotalTokens
 	manifest.Summary.ReviewableFiles = len(included)
 	manifest.Summary.ExcludedFiles = manifest.Summary.TotalFiles - len(included)
 	for _, item := range included {
 		manifest.Summary.Insertions += int64(item.LineCount)
 	}
-	manifest.Partial = budgetTruncated
+	manifest.Partial = budgetTruncated || len(manifest.SkippedFiles) > 0
 	manifest.TargetHash = hashScanItems(included)
 
 	batches := scan.GroupBatches(
@@ -108,7 +108,13 @@ func PrepareScan(ctx context.Context, options ScanOptions) (*ScanManifest, []byt
 		options.BatchSize,
 	)
 	for batchIndex, batch := range batches {
+		select {
+		case <-ctx.Done():
+			return nil, nil, ctx.Err()
+		default:
+		}
 		if err := appendScanBundles(
+			ctx,
 			manifest,
 			batch,
 			batchIndex,
@@ -132,6 +138,7 @@ func PrepareScan(ctx context.Context, options ScanOptions) (*ScanManifest, []byt
 }
 
 func filterAndBudgetScanItems(
+	ctx context.Context,
 	manifest *ScanManifest,
 	items []model.ScanItem,
 	options ScanOptions,
@@ -150,6 +157,11 @@ func filterAndBudgetScanItems(
 	var budgetUsed int64
 	budgetTruncated := false
 	for _, item := range items {
+		select {
+		case <-ctx.Done():
+			return included, budgetTruncated
+		default:
+		}
 		reason := scan.ExcludeReason(item, options.FileFilter)
 		if reason != model.ExcludeNone {
 			manifest.SkippedFiles = append(manifest.SkippedFiles, ScanSkippedFile{
@@ -173,6 +185,7 @@ func filterAndBudgetScanItems(
 }
 
 func appendScanBundles(
+	ctx context.Context,
 	manifest *ScanManifest,
 	items []model.ScanItem,
 	batchIndex int,
@@ -180,6 +193,11 @@ func appendScanBundles(
 	resolver rules.DetailResolver,
 	maxBundleSize int64,
 ) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 	bundle, err := buildScanBundle(items, batchIndex, targetHash, resolver, maxBundleSize)
 	if err == nil {
 		manifest.Bundles = append(manifest.Bundles, *bundle)
@@ -187,13 +205,21 @@ func appendScanBundles(
 	}
 	var protocolError *ProtocolError
 	if !errors.As(err, &protocolError) || protocolError.Code != "bundle_too_large" || len(items) <= 1 {
+		if errors.As(err, &protocolError) && protocolError.Code == "bundle_too_large" && len(items) == 1 {
+			manifest.SkippedFiles = append(manifest.SkippedFiles, ScanSkippedFile{
+				Path:   items[0].Path,
+				Reason: "bundle_too_large",
+			})
+			manifest.Partial = true
+			return nil
+		}
 		return err
 	}
 	midpoint := len(items) / 2
-	if err := appendScanBundles(manifest, items[:midpoint], batchIndex, targetHash, resolver, maxBundleSize); err != nil {
+	if err := appendScanBundles(ctx, manifest, items[:midpoint], batchIndex, targetHash, resolver, maxBundleSize); err != nil {
 		return err
 	}
-	return appendScanBundles(manifest, items[midpoint:], batchIndex, targetHash, resolver, maxBundleSize)
+	return appendScanBundles(ctx, manifest, items[midpoint:], batchIndex, targetHash, resolver, maxBundleSize)
 }
 
 func buildScanBundle(

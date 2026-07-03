@@ -38,15 +38,38 @@ func (e *ProtocolError) Error() string {
 
 // Prepare builds and serializes a deterministic bundle without invoking an LLM.
 func Prepare(ctx context.Context, options PrepareOptions) (*Bundle, []byte, error) {
+	bundle, err := prepareBundleCore(ctx, options)
+	if err != nil {
+		return nil, nil, err
+	}
+	maxBundleSize := bundle.Contract.MaxBundleBytes
+	encoded, err := marshalWithStableSize(bundle)
+	if err != nil {
+		return nil, nil, err
+	}
+	if int64(len(encoded)) > maxBundleSize {
+		return nil, nil, &ProtocolError{
+			Code: "bundle_too_large",
+			Message: fmt.Sprintf(
+				"encoded bundle is %d bytes; maximum is %d bytes",
+				len(encoded),
+				maxBundleSize,
+			),
+		}
+	}
+	return bundle, encoded, nil
+}
+
+func prepareBundleCore(ctx context.Context, options PrepareOptions) (*Bundle, error) {
 	if options.RepoDir == "" {
-		return nil, nil, fmt.Errorf("repository directory is required")
+		return nil, fmt.Errorf("repository directory is required")
 	}
 	if options.GitRunner == nil {
-		return nil, nil, fmt.Errorf("git runner is required")
+		return nil, fmt.Errorf("git runner is required")
 	}
 	detailResolver, ok := options.Resolver.(rules.DetailResolver)
 	if !ok {
-		return nil, nil, fmt.Errorf("rule resolver must expose source details")
+		return nil, fmt.Errorf("rule resolver must expose source details")
 	}
 	maxBundleSize := options.MaxBundleSize
 	if maxBundleSize <= 0 {
@@ -57,11 +80,11 @@ func Prepare(ctx context.Context, options PrepareOptions) (*Bundle, []byte, erro
 		ctx, options.RepoDir, options.Target, options.GitRunner,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	changes, err := loadTargetDiffs(ctx, options)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load target diffs: %w", err)
+		return nil, fmt.Errorf("load target diffs: %w", err)
 	}
 
 	bundle := &Bundle{
@@ -78,24 +101,10 @@ func Prepare(ctx context.Context, options PrepareOptions) (*Bundle, []byte, erro
 
 	bundleID, err := computeBundleID(bundle)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	bundle.BundleID = bundleID
-	encoded, err := marshalWithStableSize(bundle)
-	if err != nil {
-		return nil, nil, err
-	}
-	if int64(len(encoded)) > maxBundleSize {
-		return nil, nil, &ProtocolError{
-			Code: "bundle_too_large",
-			Message: fmt.Sprintf(
-				"encoded bundle is %d bytes; maximum is %d bytes",
-				len(encoded),
-				maxBundleSize,
-			),
-		}
-	}
-	return bundle, encoded, nil
+	return bundle, nil
 }
 
 func loadTargetDiffs(ctx context.Context, options PrepareOptions) ([]model.Diff, error) {

@@ -199,6 +199,11 @@ func hashUntracked(ctx context.Context, repoDir string, runner *gitcmd.Runner) (
 	hasher := sha256.New()
 	var length [8]byte
 	for _, path := range paths {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
 		fullPath := filepath.Join(repoDir, filepath.FromSlash(path))
 		info, statErr := os.Lstat(fullPath)
 		if statErr != nil {
