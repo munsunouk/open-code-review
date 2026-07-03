@@ -54,7 +54,14 @@ func PreparePartitioned(
 			return nil, nil, err
 		}
 	}
+	if len(manifest.Bundles) == 0 {
+		return nil, nil, &ProtocolError{
+			Code:    "empty_target",
+			Message: "no reviewable diff bundles remain after partitioning",
+		}
+	}
 	manifest.Partial = len(manifest.SkippedFiles) > 0
+	manifest.EstimatedTokens = estimateDiffManifestTokens(manifest.Bundles)
 	manifestID, err := computeManifestID(manifest)
 	if err != nil {
 		return nil, nil, err

@@ -99,13 +99,13 @@ func PrepareScan(ctx context.Context, options ScanOptions) (*ScanManifest, []byt
 		manifest.Partial = true
 		return nil, nil, err
 	}
-	manifest.EstimatedTokens = scan.EstimateTokens(included, false, false, false).TotalTokens
+	manifest.EstimatedTokens = estimateAgentContentTokens(included)
 	manifest.Summary.ReviewableFiles = len(included)
 	manifest.Summary.ExcludedFiles = manifest.Summary.TotalFiles - len(included)
 	for _, item := range included {
 		manifest.Summary.Insertions += int64(item.LineCount)
 	}
-	manifest.Partial = budgetTruncated || len(manifest.SkippedFiles) > 0
+	manifest.Partial = budgetTruncated || len(manifest.SkippedFiles) > 0 || len(included) == 0
 	manifest.TargetHash = hashScanItems(included)
 
 	batches := scan.GroupBatches(

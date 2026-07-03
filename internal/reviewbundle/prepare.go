@@ -107,6 +107,12 @@ func prepareBundleCore(ctx context.Context, options PrepareOptions) (*Bundle, er
 		return nil, err
 	}
 	bundle.BundleID = bundleID
+	if bundle.Summary.ReviewableFiles == 0 {
+		return nil, &ProtocolError{
+			Code:    "empty_target",
+			Message: "no reviewable files remain after filtering",
+		}
+	}
 	return bundle, nil
 }
 

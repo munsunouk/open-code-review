@@ -44,6 +44,26 @@ func filterOversizedDiffs(diffs []model.Diff, maxTokens int) ([]model.Diff, []Pr
 	return kept, warnings
 }
 
+func estimateDiffManifestTokens(bundles []Bundle) int64 {
+	var total int64
+	for _, bundle := range bundles {
+		for _, file := range bundle.Files {
+			if file.Reviewable {
+				total += int64(llm.CountTokens(file.Patch))
+			}
+		}
+	}
+	return total
+}
+
+func estimateAgentContentTokens(items []model.ScanItem) int64 {
+	var total int64
+	for _, item := range items {
+		total += int64(llm.CountTokens(item.Content))
+	}
+	return total
+}
+
 func filterOversizedScanItems(items []model.ScanItem, maxTokens int) ([]model.ScanItem, []ScanSkippedFile) {
 	limit := prefilterTokenLimit(maxTokens)
 	kept := make([]model.ScanItem, 0, len(items))
