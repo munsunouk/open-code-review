@@ -294,7 +294,13 @@ type ToolCallInfo struct {
 
 // LoadSession fully parses a JSONL file into a ViewSession.
 func LoadSession(root, encodedRepo, sessionID string) (*ViewSession, error) {
+	if err := ValidateSessionID(sessionID); err != nil {
+		return nil, err
+	}
 	path := filepath.Join(root, encodedRepo, sessionID+".jsonl")
+	if rel, err := filepath.Rel(root, path); err != nil || strings.HasPrefix(rel, "..") {
+		return nil, fmt.Errorf("invalid session path")
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open session file: %w", err)
