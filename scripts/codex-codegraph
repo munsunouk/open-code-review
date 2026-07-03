@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
+# Launch Codex with the local codegraph MCP server rooted at this repository.
+# Requires: codex CLI, codegraph on PATH, and jq for safe JSON path interpolation.
 set -euo pipefail
+
+if ! command -v jq >/dev/null 2>&1; then
+	echo "codex-codegraph: jq is required for safe MCP path interpolation" >&2
+	exit 1
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT_JSON="$(printf '%s' "$ROOT" | jq -Rs '.')"

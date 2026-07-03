@@ -376,7 +376,7 @@ func TestCodexValidateCommentsRejectsBundleIDMismatch(t *testing.T) {
 	}
 	comments := reviewbundle.Comments{
 		SchemaVersion: reviewbundle.CommentsSchemaVersion,
-		BundleID:      "sha256:wrong",
+		BundleID:      "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		Summary:       reviewbundle.CommentsSummary{FilesReviewed: 1, IssuesFound: 0},
 		Comments:      []reviewbundle.ReviewComment{},
 	}
@@ -407,7 +407,7 @@ func TestCodexReportRejectsBundleIDMismatch(t *testing.T) {
 	}
 	comments := reviewbundle.Comments{
 		SchemaVersion: reviewbundle.CommentsSchemaVersion,
-		BundleID:      "sha256:wrong",
+		BundleID:      "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		Summary:       reviewbundle.CommentsSummary{FilesReviewed: 1, IssuesFound: 0},
 		Comments:      []reviewbundle.ReviewComment{},
 	}
