@@ -115,16 +115,21 @@ jobs:
 
       - name: Install OpenCodeReview
         run: |
-          npm install -g @alibaba-group/open-code-review
+          npm install -g @alibaba-group/open-code-review@^1.7.0
           echo "OpenCodeReview installed with version:"
           ocr version || true
 
       - name: Configure OCR
+        env:
+          OCR_LLM_URL: ${{ secrets.OCR_LLM_URL }}
+          OCR_LLM_AUTH_TOKEN: ${{ secrets.OCR_LLM_AUTH_TOKEN }}
+          OCR_LLM_MODEL: ${{ secrets.OCR_LLM_MODEL }}
+          OCR_LLM_USE_ANTHROPIC: ${{ secrets.OCR_LLM_USE_ANTHROPIC }}
         run: |
-          ocr config set llm.url ${{ secrets.OCR_LLM_URL }}
-          ocr config set llm.auth_token ${{ secrets.OCR_LLM_AUTH_TOKEN }}
-          ocr config set llm.model ${{ secrets.OCR_LLM_MODEL }}
-          ocr config set llm.use_anthropic ${{ secrets.OCR_LLM_USE_ANTHROPIC }}
+          ocr config set llm.url "$OCR_LLM_URL"
+          ocr config set llm.auth_token "$OCR_LLM_AUTH_TOKEN"
+          if [ -n "$OCR_LLM_MODEL" ]; then ocr config set llm.model "$OCR_LLM_MODEL"; fi
+          if [ -n "$OCR_LLM_USE_ANTHROPIC" ]; then ocr config set llm.use_anthropic "$OCR_LLM_USE_ANTHROPIC"; fi
           ocr config set llm.extra_body '{"thinking": {"type": "disabled"}}'
 
       - name: Run OpenCodeReview
@@ -696,14 +701,18 @@ jobs:
                 const comments = await readAllPages('listIssueComments', (page, per_page) =>
                   github.rest.issues.listComments({ owner, repo, issue_number: issueNumber, per_page, page })
                 );
-                // Match the tag anchored to its HTML comment wrapper for
-                // consistency with getPostedCommentIds and to defend against
-                // user content that happens to contain the bare tag string.
-                // `id` is an opaque tag like `<!-- ocr-summary-run:... -->`,
-                // so escape any regex metacharacters before embedding it.
-                const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const tagRe = new RegExp('<!--\\s*' + escaped + '\\s*-->');
-                return comments.some(c => tagRe.test(c.body || ''));
+                // `id` may already be a full HTML comment (for example
+                // `<!-- ocr-summary-run:... -->`). Match it directly instead of
+                // wrapping it in another comment pair.
+                return comments.some((c) => {
+                  const body = c.body || '';
+                  if (id.startsWith('<!--')) {
+                    return body.includes(id);
+                  }
+                  const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  const tagRe = new RegExp('<!--\\s*' + escaped + '\\s*-->');
+                  return tagRe.test(body);
+                });
               } catch (e) {
                 console.log(`[listIssueComments] check failed (${e.message}); treating as unknown to avoid duplicates.`);
                 return null;

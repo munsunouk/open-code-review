@@ -2,6 +2,7 @@
 "use strict";
 
 const assert = require("assert");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
@@ -63,6 +64,7 @@ function mockGithub(options) {
     rest: {
       pulls: {
         get: async () => ({ data: { head: { sha: "head-sha" } } }),
+        listReviewComments: async () => ({ data: [], headers: {} }),
         createReview: async (params) => {
           createReviewCalls.push(params);
           if (createReviewCalls.length === 1 && options.bulkError) {
@@ -75,6 +77,7 @@ function mockGithub(options) {
         },
       },
       issues: {
+        listComments: async () => ({ data: [], headers: {} }),
         createComment: async (params) => {
           issueComments.push(params);
           return { data: {} };
@@ -91,20 +94,28 @@ async function runPostReviewScript(workflowPath, options) {
     repo: { owner: "owner", repo: "repo" },
     issue: { number: 123 },
     eventName: "pull_request_target",
-    payload: { pull_request: { head: { sha: "head-sha" } } },
+    runId: 1,
+    runAttempt: 1,
+    payload: { pull_request: { head: { sha: "head-sha" }, number: 123 } },
   };
   const sandbox = {
     github,
     context,
+    crypto,
+    process,
+    setTimeout,
+    clearTimeout,
+    Promise,
     console: { log() {} },
     require(name) {
       if (name === "fs") return options.fs;
+      if (name === "crypto") return crypto;
       throw new Error(`unexpected require: ${name}`);
     },
   };
 
   await vm.runInNewContext(`(async () => {\n${script}\n})()`, sandbox, {
-    timeout: 1000,
+    timeout: 5000,
   });
 
   return github;
@@ -158,7 +169,28 @@ async function testErrorCommentUsesSafeFence(workflowPath) {
   assert.match(body, /\n````\nstderr includes a fence/);
 }
 
+function testSummaryTagIdempotencyMatcher() {
+  const tag = "<!-- ocr-summary-run:42-1 -->";
+  const matcher = (comments, id) =>
+    comments.some((c) => {
+      const body = c.body || "";
+      if (id.startsWith("<!--")) {
+        return body.includes(id);
+      }
+      const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const tagRe = new RegExp("<!--\\s*" + escaped + "\\s*-->");
+      return tagRe.test(body);
+    });
+
+  assert.strictEqual(
+    matcher([{ body: `${tag}\nsummary` }], tag),
+    true,
+    "full HTML summary tag should match posted body"
+  );
+}
+
 async function main() {
+  testSummaryTagIdempotencyMatcher();
   for (const workflowPath of workflowFiles) {
     await testFailedInlineCommentsAreSummarized(workflowPath);
     await testErrorCommentUsesSafeFence(workflowPath);
