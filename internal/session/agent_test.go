@@ -94,6 +94,31 @@ func TestAgentRecorderRestoresStartTimeWhenResuming(t *testing.T) {
 	}
 }
 
+func TestAgentRecorderFinalizeIsIdempotent(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	repository := t.TempDir()
+	recorder, err := OpenAgentRecorder(repository, "run-dup", "sha256:bundle")
+	if err != nil {
+		t.Fatalf("OpenAgentRecorder() error = %v", err)
+	}
+	if err := recorder.Finalize("sha256:bundle", AgentEvent{Findings: 1}); err != nil {
+		t.Fatalf("first Finalize() error = %v", err)
+	}
+	if err := recorder.Finalize("sha256:bundle", AgentEvent{Findings: 99}); err != nil {
+		t.Fatalf("second Finalize() error = %v", err)
+	}
+	records := readAgentRecords(t, recorder.Path())
+	sessionEnds := 0
+	for _, record := range records {
+		if record["type"] == "session_end" {
+			sessionEnds++
+		}
+	}
+	if sessionEnds != 1 {
+		t.Fatalf("session_end records = %d, want 1", sessionEnds)
+	}
+}
+
 func TestAgentRecorderRecoversOrphanedEmptySessionFile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

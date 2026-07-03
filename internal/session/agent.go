@@ -139,6 +139,9 @@ func (recorder *AgentRecorder) Record(event string, bundleID string, details Age
 
 // Finalize appends a viewer-compatible session end record.
 func (recorder *AgentRecorder) Finalize(bundleID string, details AgentEvent) error {
+	if agentSessionHasEnd(recorder.path) {
+		return nil
+	}
 	record := agentEventRecord(recorder, "session_end", bundleID, details)
 	record["duration_seconds"] = time.Since(recorder.started).Seconds()
 	record["files_reviewed"] = details.FilesReviewed
@@ -221,6 +224,26 @@ func readAgentSessionBundleID(path string) (string, error) {
 		return bundleID, nil
 	}
 	return "", nil
+}
+
+func agentSessionHasEnd(path string) bool {
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		var record map[string]any
+		if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
+			continue
+		}
+		if recordType, _ := record["type"].(string); recordType == "session_end" {
+			return true
+		}
+	}
+	return false
 }
 
 func (recorder *AgentRecorder) writeExclusiveStart(record map[string]any) error {
