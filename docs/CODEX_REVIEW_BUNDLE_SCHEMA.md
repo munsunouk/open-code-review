@@ -1,7 +1,7 @@
-# Codex Review Bundle 协议
+# Agent Review Bundle 协议
 
-本文档固定 `codex-review-bundle/v1`、`codex-review-comments/v1` 与
-`codex-review-manifest/v1` 的规范语义。JSON Schema 的可执行副本位于
+本文档固定 `agent-review-bundle/v1`、`agent-review-comments/v1` 与
+`agent-review-manifest/v1` 的规范语义。JSON Schema 的可执行副本位于
 `internal/reviewbundle/schemas/`。
 
 ## 哈希规范
@@ -47,9 +47,9 @@ workspace state 分别记录当前 `HEAD`、staged diff、unstaged diff和按路
 
 ## Scan manifest
 
-全文件 scan 输出 `codex-review-manifest/v1`。manifest 记录全局目标摘要、分组策略、
+全文件 scan 输出 `agent-review-manifest/v1`。manifest 记录全局目标摘要、分组策略、
 批次大小、估算 token、partial 状态、明确跳过的文件及原因，并按确定顺序内嵌
-`codex-review-bundle/v1` 分片。每个文件只允许出现在一个分片中。
+`agent-review-bundle/v1` 分片。每个文件只允许出现在一个分片中。
 
 scan 分片使用 `target.mode=scan`，`files[].content` 保存全文件证据，
 `content_sha256` 保存内容摘要，`patch` 为空。`none`、`by-language` 和

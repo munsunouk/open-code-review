@@ -21,7 +21,7 @@ ocr agent prepare --format json --output /tmp/bundle.json
 
 ### Step 2: Review and write comments
 
-Produce `codex-review-comments/v1` JSON that references the bundle `bundle_id`. Use `ocr agent context` when deeper repository context is required.
+Produce `agent-review-comments/v1` JSON that references the bundle `bundle_id`. Use `ocr agent context` when deeper repository context is required.
 
 ### Step 3: Validate comments
 

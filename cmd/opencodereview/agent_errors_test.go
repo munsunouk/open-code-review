@@ -29,7 +29,7 @@ func TestRequireValidationReportRequiresValidResult(t *testing.T) {
 
 	path := filepath.Join(t.TempDir(), "validation.json")
 	writeAgentJSON(t, path, reviewbundle.ValidationResult{
-		SchemaVersion: "codex-review-validation/v1",
+		SchemaVersion: "agent-review-validation/v1",
 		BundleID:      "sha256:test",
 		Valid:         false,
 	})
@@ -45,7 +45,7 @@ func TestRequireValidationReportRequiresValidResult(t *testing.T) {
 func TestLoadValidationResultRejectsUnknownFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "validation.json")
 	if err := os.WriteFile(path, []byte(`{
-		"schema_version":"codex-review-validation/v1",
+		"schema_version":"agent-review-validation/v1",
 		"bundle_id":"sha256:test",
 		"valid":true,
 		"unexpected":true
@@ -60,21 +60,21 @@ func TestLoadValidationResultRejectsUnknownFields(t *testing.T) {
 }
 
 func TestParseAgentReportAndValidateFlagsRejectBadValues(t *testing.T) {
-	if _, err := parseCodexReportFlags("agent", []string{
+	if _, err := parseAgentReportFlags("agent", []string{
 		"--bundle", "bundle.json",
 		"--comments", "comments.json",
 		"--validation", "validation.json",
 		"--format", "xml",
 	}); err == nil || !strings.Contains(err.Error(), "--format") {
-		t.Fatalf("parseCodexReportFlags() error = %v, want format error", err)
+		t.Fatalf("parseAgentReportFlags() error = %v, want format error", err)
 	}
 
-	if _, err := parseCodexValidateFlags("agent", []string{
+	if _, err := parseAgentValidateFlags("agent", []string{
 		"--bundle", "bundle.json",
 		"--comments", "comments.json",
 		"--max-git-procs", "0",
 	}); err == nil || !strings.Contains(err.Error(), "--max-git-procs") {
-		t.Fatalf("parseCodexValidateFlags() error = %v, want max git procs error", err)
+		t.Fatalf("parseAgentValidateFlags() error = %v, want max git procs error", err)
 	}
 }
 
@@ -88,12 +88,12 @@ func TestAgentCommandUsageAndPrepareValidationEdges(t *testing.T) {
 
 	cases := []struct {
 		name    string
-		options codexPrepareOptions
+		options agentPrepareOptions
 		want    string
 	}{
 		{
 			name: "scan with split",
-			options: codexPrepareOptions{
+			options: agentPrepareOptions{
 				format:         "json",
 				maxBundleBytes: 1,
 				maxGitProcs:    1,
@@ -107,7 +107,7 @@ func TestAgentCommandUsageAndPrepareValidationEdges(t *testing.T) {
 		},
 		{
 			name: "preview output",
-			options: codexPrepareOptions{
+			options: agentPrepareOptions{
 				format:         "json",
 				maxBundleBytes: 1,
 				maxGitProcs:    1,
@@ -121,7 +121,7 @@ func TestAgentCommandUsageAndPrepareValidationEdges(t *testing.T) {
 		},
 		{
 			name: "bad batch",
-			options: codexPrepareOptions{
+			options: agentPrepareOptions{
 				format:         "json",
 				maxBundleBytes: 1,
 				maxGitProcs:    1,
@@ -134,9 +134,9 @@ func TestAgentCommandUsageAndPrepareValidationEdges(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateCodexPrepareOptions(tc.options)
+			err := validateAgentPrepareOptions(tc.options)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("validateCodexPrepareOptions() error = %v, want %q", err, tc.want)
+				t.Fatalf("validateAgentPrepareOptions() error = %v, want %q", err, tc.want)
 			}
 		})
 	}

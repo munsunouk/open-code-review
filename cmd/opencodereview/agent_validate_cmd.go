@@ -13,7 +13,7 @@ import (
 	"github.com/open-code-review/open-code-review/internal/session"
 )
 
-type codexValidateOptions struct {
+type agentValidateOptions struct {
 	repoDir      string
 	bundlePath   string
 	commentsPath string
@@ -23,19 +23,19 @@ type codexValidateOptions struct {
 	showHelp     bool
 }
 
-func runCodexValidateCommentsForCommand(
+func runAgentValidateCommentsForCommand(
 	ctx context.Context,
 	command string,
 	args []string,
 	writer io.Writer,
 ) error {
 	started := time.Now()
-	options, err := parseCodexValidateFlags(command, args)
+	options, err := parseAgentValidateFlags(command, args)
 	if err != nil {
 		return err
 	}
 	if options.showHelp {
-		printCodexValidateUsage(writer, command)
+		printAgentValidateUsage(writer, command)
 		return nil
 	}
 	commentsFile, err := os.Open(options.commentsPath)
@@ -50,7 +50,7 @@ func runCodexValidateCommentsForCommand(
 	if closeErr != nil {
 		return fmt.Errorf("close comments: %w", closeErr)
 	}
-	bundle, err := loadCodexBundleByID(options.bundlePath, comments.BundleID)
+	bundle, err := loadAgentBundleByID(options.bundlePath, comments.BundleID)
 	if err != nil {
 		return err
 	}
@@ -68,12 +68,12 @@ func runCodexValidateCommentsForCommand(
 		repoDir,
 		gitcmd.New(options.maxGitProcs),
 	)
-	if err := recordCodexEvent(
+	if err := recordAgentEvent(
 		repoDir,
 		options.sessionID,
 		bundle.BundleID,
 		"validate",
-		session.CodexEvent{
+		session.AgentEvent{
 			Files:           comments.Summary.FilesReviewed,
 			Findings:        len(comments.Comments),
 			Warnings:        len(result.Warnings),
@@ -103,9 +103,9 @@ func runCodexValidateCommentsForCommand(
 	return nil
 }
 
-func parseCodexValidateFlags(command string, args []string) (codexValidateOptions, error) {
+func parseAgentValidateFlags(command string, args []string) (agentValidateOptions, error) {
 	flags := newOcrFlagSet("ocr " + command + " validate-comments")
-	options := codexValidateOptions{}
+	options := agentValidateOptions{}
 	flags.StringVar(&options.repoDir, "repo", "", "root directory of the git repository")
 	flags.StringVar(&options.bundlePath, "bundle", "", "review bundle JSON path")
 	flags.StringVar(&options.commentsPath, "comments", "", agentCommentsHelp(command))
@@ -128,7 +128,7 @@ func parseCodexValidateFlags(command string, args []string) (codexValidateOption
 	return options, nil
 }
 
-func printCodexValidateUsage(writer io.Writer, command string) {
+func printAgentValidateUsage(writer io.Writer, command string) {
 	fmt.Fprintln(writer, `Usage:
   ocr `+command+` validate-comments --bundle FILE --comments FILE
                               [--repo PATH] [--output FILE]`)

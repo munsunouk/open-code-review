@@ -12,10 +12,10 @@ import (
 	"time"
 )
 
-var safeCodexRunID = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+var safeAgentRunID = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
-// CodexEvent contains only metrics supplied by the host-agent workflow.
-type CodexEvent struct {
+// AgentEvent contains only metrics supplied by the host-agent workflow.
+type AgentEvent struct {
 	Files           int      `json:"files,omitempty"`
 	Findings        int      `json:"findings,omitempty"`
 	Warnings        int      `json:"warnings,omitempty"`
@@ -27,8 +27,8 @@ type CodexEvent struct {
 	Error           string   `json:"error,omitempty"`
 }
 
-// CodexRecorder appends viewer-compatible host-agent events.
-type CodexRecorder struct {
+// AgentRecorder appends viewer-compatible host-agent events.
+type AgentRecorder struct {
 	mu       sync.Mutex
 	path     string
 	runID    string
@@ -36,9 +36,9 @@ type CodexRecorder struct {
 	started  time.Time
 }
 
-// OpenCodexRecorder opens or resumes one explicitly requested run ID.
-func OpenCodexRecorder(repoDir, runID, bundleID string) (*CodexRecorder, error) {
-	if runID == "" || !safeCodexRunID.MatchString(runID) {
+// OpenAgentRecorder opens or resumes one explicitly requested run ID.
+func OpenAgentRecorder(repoDir, runID, bundleID string) (*AgentRecorder, error) {
+	if runID == "" || !safeAgentRunID.MatchString(runID) {
 		return nil, fmt.Errorf("session ID must contain only letters, digits, dot, underscore, or dash")
 	}
 	home, err := os.UserHomeDir()
@@ -50,13 +50,13 @@ func OpenCodexRecorder(repoDir, runID, bundleID string) (*CodexRecorder, error) 
 		return nil, fmt.Errorf("create session directory: %w", err)
 	}
 	path := filepath.Join(directory, runID+".jsonl")
-	recorder := &CodexRecorder{
+	recorder := &AgentRecorder{
 		path: path, runID: runID, bundleID: bundleID, started: time.Now(),
 	}
 	info, statErr := os.Stat(path)
 	if statErr == nil {
 		if info.Size() > 0 {
-			return finishResumeCodexRecorder(recorder, bundleID, runID)
+			return finishResumeAgentRecorder(recorder, bundleID, runID)
 		}
 		if err := os.Remove(path); err != nil {
 			return nil, fmt.Errorf("remove orphaned session file: %w", err)
@@ -87,18 +87,18 @@ func OpenCodexRecorder(repoDir, runID, bundleID string) (*CodexRecorder, error) 
 		if info.Size() == 0 {
 			return nil, fmt.Errorf("session %q exists but has no session_start record", runID)
 		}
-		return finishResumeCodexRecorder(recorder, bundleID, runID)
+		return finishResumeAgentRecorder(recorder, bundleID, runID)
 	}
 	return recorder, nil
 }
 
-func finishResumeCodexRecorder(
-	recorder *CodexRecorder,
+func finishResumeAgentRecorder(
+	recorder *AgentRecorder,
 	bundleID string,
 	runID string,
-) (*CodexRecorder, error) {
-	recorder.started = readCodexSessionStart(recorder.path, recorder.started)
-	existingBundleID, readErr := readCodexSessionBundleID(recorder.path)
+) (*AgentRecorder, error) {
+	recorder.started = readAgentSessionStart(recorder.path, recorder.started)
+	existingBundleID, readErr := readAgentSessionBundleID(recorder.path)
 	if readErr != nil {
 		return nil, readErr
 	}
@@ -116,30 +116,30 @@ func finishResumeCodexRecorder(
 }
 
 // Path returns the persisted JSONL path.
-func (recorder *CodexRecorder) Path() string {
+func (recorder *AgentRecorder) Path() string {
 	return recorder.path
 }
 
 // Record appends one correlated host-agent workflow event.
-func (recorder *CodexRecorder) Record(event string, details CodexEvent) error {
-	record := codexEventRecord(recorder, "agent_event", details)
+func (recorder *AgentRecorder) Record(event string, details AgentEvent) error {
+	record := agentEventRecord(recorder, "agent_event", details)
 	record["event"] = event
 	return recorder.write(record)
 }
 
 // Finalize appends a viewer-compatible session end record.
-func (recorder *CodexRecorder) Finalize(details CodexEvent) error {
-	record := codexEventRecord(recorder, "session_end", details)
+func (recorder *AgentRecorder) Finalize(details AgentEvent) error {
+	record := agentEventRecord(recorder, "session_end", details)
 	record["duration_seconds"] = time.Since(recorder.started).Seconds()
 	record["files_reviewed"] = details.FilesReviewed
 	record["llm_failures"] = 0
 	return recorder.write(record)
 }
 
-func codexEventRecord(
-	recorder *CodexRecorder,
+func agentEventRecord(
+	recorder *AgentRecorder,
 	recordType string,
-	details CodexEvent,
+	details AgentEvent,
 ) map[string]any {
 	var fields map[string]any
 	content, err := json.Marshal(details)
@@ -160,7 +160,7 @@ func codexEventRecord(
 	return fields
 }
 
-func readCodexSessionStart(path string, fallback time.Time) time.Time {
+func readAgentSessionStart(path string, fallback time.Time) time.Time {
 	file, err := os.Open(path)
 	if err != nil {
 		return fallback
@@ -186,7 +186,7 @@ func readCodexSessionStart(path string, fallback time.Time) time.Time {
 	return fallback
 }
 
-func readCodexSessionBundleID(path string) (string, error) {
+func readAgentSessionBundleID(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("open session file: %w", err)
@@ -208,7 +208,7 @@ func readCodexSessionBundleID(path string) (string, error) {
 	return "", nil
 }
 
-func (recorder *CodexRecorder) writeExclusiveStart(record map[string]any) error {
+func (recorder *AgentRecorder) writeExclusiveStart(record map[string]any) error {
 	recorder.mu.Lock()
 	defer recorder.mu.Unlock()
 	encoded, err := json.Marshal(record)
@@ -236,7 +236,7 @@ func (recorder *CodexRecorder) writeExclusiveStart(record map[string]any) error 
 	return file.Close()
 }
 
-func (recorder *CodexRecorder) write(record map[string]any) error {
+func (recorder *AgentRecorder) write(record map[string]any) error {
 	recorder.mu.Lock()
 	defer recorder.mu.Unlock()
 	encoded, err := json.Marshal(record)

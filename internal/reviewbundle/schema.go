@@ -3,13 +3,13 @@ package reviewbundle
 import _ "embed"
 
 var (
-	//go:embed schemas/codex-review-bundle-v1.json
+	//go:embed schemas/agent-review-bundle-v1.json
 	bundleSchema []byte
 
-	//go:embed schemas/codex-review-comments-v1.json
+	//go:embed schemas/agent-review-comments-v1.json
 	commentsSchema []byte
 
-	//go:embed schemas/codex-review-manifest-v1.json
+	//go:embed schemas/agent-review-manifest-v1.json
 	manifestSchema []byte
 )
 

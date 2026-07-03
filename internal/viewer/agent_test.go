@@ -7,16 +7,16 @@ import (
 	"testing"
 )
 
-func TestViewerRejectsCodexOwnedSession(t *testing.T) {
+func TestViewerIgnoresUnknownSessionEventTypes(t *testing.T) {
 	root := t.TempDir()
 	repository := filepath.Join(root, "repo")
 	if err := os.MkdirAll(repository, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	content := "" +
-		`{"type":"session_start","sessionId":"run-1","timestamp":"2026-06-30T00:00:00Z","cwd":"/repo","reviewMode":"workspace","controlPlane":"codex-owned","bundleId":"sha256:bundle","tokenUsage":"not_available"}` + "\n" +
-		`{"type":"codex_event","sessionId":"run-1","timestamp":"2026-06-30T00:00:01Z","event":"context.search","bundleId":"sha256:bundle","duration_ms":5}` + "\n" +
-		`{"type":"session_end","sessionId":"run-1","timestamp":"2026-06-30T00:00:02Z","duration_seconds":2,"files_reviewed":["main.go"],"llm_failures":0,"controlPlane":"codex-owned","bundleId":"sha256:bundle","tokenUsage":"not_available"}` + "\n"
+		`{"type":"session_start","sessionId":"run-1","timestamp":"2026-06-30T00:00:00Z","cwd":"/repo","reviewMode":"agent","controlPlane":"agent","bundleId":"sha256:bundle","tokenUsage":"not_available"}` + "\n" +
+		`{"type":"legacy_event","sessionId":"run-1","timestamp":"2026-06-30T00:00:01Z","event":"context.search","bundleId":"sha256:bundle","duration_ms":5}` + "\n" +
+		`{"type":"session_end","sessionId":"run-1","timestamp":"2026-06-30T00:00:02Z","duration_seconds":2,"files_reviewed":["main.go"],"llm_failures":0,"controlPlane":"agent","bundleId":"sha256:bundle","tokenUsage":"not_available"}` + "\n"
 	if err := os.WriteFile(filepath.Join(repository, "run-1.jsonl"), []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -24,12 +24,15 @@ func TestViewerRejectsCodexOwnedSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListSessions() error = %v", err)
 	}
-	if len(summaries) != 0 {
+	if len(summaries) != 1 {
 		t.Fatalf("summaries = %+v", summaries)
 	}
-	_, err = LoadSession(root, "repo", "run-1")
-	if err == nil || !strings.Contains(err.Error(), "legacy codex-owned") {
-		t.Fatalf("LoadSession() error = %v, want legacy codex-owned rejection", err)
+	session, err := LoadSession(root, "repo", "run-1")
+	if err != nil {
+		t.Fatalf("LoadSession() error = %v", err)
+	}
+	if len(session.AgentEvents) != 0 || session.Summary.ControlPlane != "agent" {
+		t.Fatalf("session = %+v", session)
 	}
 }
 
@@ -59,13 +62,13 @@ func TestViewerLoadsAgentSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadSession() error = %v", err)
 	}
-	if len(session.CodexEvents) != 1 ||
-		session.CodexEvents[0].Event != "validate" ||
-		session.CodexEvents[0].Files != 3 ||
-		session.CodexEvents[0].Findings != 2 ||
-		session.CodexEvents[0].Warnings != 1 ||
-		session.CodexEvents[0].ValidationValid == nil ||
-		!*session.CodexEvents[0].ValidationValid {
+	if len(session.AgentEvents) != 1 ||
+		session.AgentEvents[0].Event != "validate" ||
+		session.AgentEvents[0].Files != 3 ||
+		session.AgentEvents[0].Findings != 2 ||
+		session.AgentEvents[0].Warnings != 1 ||
+		session.AgentEvents[0].ValidationValid == nil ||
+		!*session.AgentEvents[0].ValidationValid {
 		t.Fatalf("session = %+v", session)
 	}
 }

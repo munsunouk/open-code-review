@@ -15,7 +15,7 @@ import (
 	"github.com/open-code-review/open-code-review/internal/stdout"
 )
 
-type codexPrepareOptions struct {
+type agentPrepareOptions struct {
 	repoDir        string
 	rulePath       string
 	from           string
@@ -54,21 +54,21 @@ func runAgentCommandsWithWriter(command string, args []string, writer io.Writer)
 	}
 	switch args[0] {
 	case "prepare":
-		options, err := parseCodexPrepareFlags(command, args[1:])
+		options, err := parseAgentPrepareFlags(command, args[1:])
 		if err != nil {
 			return err
 		}
 		if options.showHelp {
-			printCodexPrepareUsage(writer, command)
+			printAgentPrepareUsage(writer, command)
 			return nil
 		}
-		return executeCodexPrepare(context.Background(), options, writer)
+		return executeAgentPrepare(context.Background(), options, writer)
 	case "validate-comments":
-		return runCodexValidateCommentsForCommand(context.Background(), command, args[1:], writer)
+		return runAgentValidateCommentsForCommand(context.Background(), command, args[1:], writer)
 	case "report":
-		return runCodexReportForCommand(command, args[1:], writer)
+		return runAgentReportForCommand(command, args[1:], writer)
 	case "context":
-		return runCodexContextForCommand(context.Background(), command, args[1:], writer)
+		return runAgentContextForCommand(context.Background(), command, args[1:], writer)
 	case "-h", "--help":
 		printAgentCommandUsage(writer, command)
 		return nil
@@ -77,9 +77,9 @@ func runAgentCommandsWithWriter(command string, args []string, writer io.Writer)
 	}
 }
 
-func parseCodexPrepareFlags(command string, args []string) (codexPrepareOptions, error) {
+func parseAgentPrepareFlags(command string, args []string) (agentPrepareOptions, error) {
 	flags := newOcrFlagSet("ocr " + command + " prepare")
-	options := codexPrepareOptions{}
+	options := agentPrepareOptions{}
 	flags.StringVar(&options.repoDir, "repo", "", "root directory of the git repository")
 	flags.StringVar(&options.rulePath, "rule", "", "path to a custom review rule file")
 	flags.StringVar(&options.from, "from", "", "source ref for a range review")
@@ -117,13 +117,13 @@ func parseCodexPrepareFlags(command string, args []string) (codexPrepareOptions,
 	if options.showHelp {
 		return options, nil
 	}
-	if err := validateCodexPrepareOptions(options); err != nil {
+	if err := validateAgentPrepareOptions(options); err != nil {
 		return options, err
 	}
 	return options, nil
 }
 
-func validateCodexPrepareOptions(options codexPrepareOptions) error {
+func validateAgentPrepareOptions(options agentPrepareOptions) error {
 	modeCount := 0
 	if options.from != "" || options.to != "" {
 		modeCount++
@@ -169,9 +169,9 @@ func validateCodexPrepareOptions(options codexPrepareOptions) error {
 	return nil
 }
 
-func executeCodexPrepare(
+func executeAgentPrepare(
 	ctx context.Context,
-	options codexPrepareOptions,
+	options agentPrepareOptions,
 	writer io.Writer,
 ) error {
 	started := time.Now()
@@ -198,7 +198,7 @@ func executeCodexPrepare(
 		fileFilter.Include = append(fileFilter.Include, includePatterns...)
 	}
 	if options.scan {
-		return executeCodexScanPrepare(
+		return executeAgentScanPrepare(
 			ctx,
 			options,
 			repoDir,
@@ -208,7 +208,7 @@ func executeCodexPrepare(
 		)
 	}
 	if options.split {
-		return executeCodexDiffPartition(
+		return executeAgentDiffPartition(
 			ctx,
 			options,
 			repoDir,
@@ -233,12 +233,12 @@ func executeCodexPrepare(
 	if err != nil {
 		return fmt.Errorf("prepare agent review bundle: %w", err)
 	}
-	if err := recordCodexEvent(
+	if err := recordAgentEvent(
 		repoDir,
 		options.sessionID,
 		bundle.BundleID,
 		"prepare",
-		session.CodexEvent{
+		session.AgentEvent{
 			Files:      bundle.Summary.ReviewableFiles,
 			Warnings:   len(bundle.Warnings),
 			DurationMS: time.Since(started).Milliseconds(),
@@ -248,7 +248,7 @@ func executeCodexPrepare(
 		return err
 	}
 	if options.preview {
-		writeCodexPreview(writer, bundle)
+		writeAgentPreview(writer, bundle)
 		return nil
 	}
 	if options.outputPath != "" {
@@ -260,9 +260,9 @@ func executeCodexPrepare(
 	return nil
 }
 
-func executeCodexDiffPartition(
+func executeAgentDiffPartition(
 	ctx context.Context,
-	options codexPrepareOptions,
+	options agentPrepareOptions,
 	repoDir string,
 	resolver rules.Resolver,
 	fileFilter *rules.FileFilter,
@@ -283,14 +283,14 @@ func executeCodexDiffPartition(
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("prepare partitioned Codex review: %w", err)
+		return fmt.Errorf("prepare partitioned agent review: %w", err)
 	}
-	if err := recordCodexEvent(
+	if err := recordAgentEvent(
 		repoDir,
 		options.sessionID,
 		manifest.ManifestID,
 		"prepare.diff_manifest",
-		session.CodexEvent{
+		session.AgentEvent{
 			Files:      manifest.Summary.ReviewableFiles,
 			Warnings:   len(manifest.Warnings),
 			DurationMS: time.Since(started).Milliseconds(),
@@ -315,9 +315,9 @@ func executeCodexDiffPartition(
 	return err
 }
 
-func executeCodexScanPrepare(
+func executeAgentScanPrepare(
 	ctx context.Context,
-	options codexPrepareOptions,
+	options agentPrepareOptions,
 	repoDir string,
 	resolver rules.Resolver,
 	fileFilter *rules.FileFilter,
@@ -339,12 +339,12 @@ func executeCodexScanPrepare(
 	if err != nil {
 		return fmt.Errorf("prepare agent scan manifest: %w", err)
 	}
-	if err := recordCodexEvent(
+	if err := recordAgentEvent(
 		repoDir,
 		options.sessionID,
 		manifest.ManifestID,
 		"prepare.scan",
-		session.CodexEvent{
+		session.AgentEvent{
 			Files:      manifest.Summary.ReviewableFiles,
 			Warnings:   len(manifest.Warnings),
 			Partial:    manifest.Partial,
@@ -376,18 +376,18 @@ func executeCodexScanPrepare(
 	return err
 }
 
-func recordCodexEvent(
+func recordAgentEvent(
 	repoDir string,
 	sessionID string,
 	bundleID string,
 	event string,
-	details session.CodexEvent,
+	details session.AgentEvent,
 	finalize bool,
 ) error {
 	if sessionID == "" {
 		return nil
 	}
-	recorder, err := session.OpenCodexRecorder(repoDir, sessionID, bundleID)
+	recorder, err := session.OpenAgentRecorder(repoDir, sessionID, bundleID)
 	if err != nil {
 		return fmt.Errorf("open agent session: %w", err)
 	}
@@ -412,7 +412,7 @@ func writePrivateFile(path string, content []byte) error {
 	return nil
 }
 
-func writeCodexPreview(writer io.Writer, bundle *reviewbundle.Bundle) {
+func writeAgentPreview(writer io.Writer, bundle *reviewbundle.Bundle) {
 	fmt.Fprintf(
 		writer,
 		"Agent review bundle preview: %d files (%d reviewable, %d excluded), +%d -%d\n",
@@ -453,7 +453,7 @@ Commands:
   context             Read target-aware repository context without an LLM`)
 }
 
-func printCodexPrepareUsage(writer io.Writer, command string) {
+func printAgentPrepareUsage(writer io.Writer, command string) {
 	fmt.Fprintln(writer, `Usage:
   ocr `+command+` prepare [--repo PATH] [--from REF --to REF | --commit REF]
                     [--rule PATH] [--exclude PATTERNS] [--preview]

@@ -6,9 +6,9 @@ import "github.com/open-code-review/open-code-review/internal/model"
 
 const (
 	// BundleSchemaVersion identifies the review bundle protocol.
-	BundleSchemaVersion = "codex-review-bundle/v1"
+	BundleSchemaVersion = "agent-review-bundle/v1"
 	// CommentsSchemaVersion identifies the external review comments protocol.
-	CommentsSchemaVersion = "codex-review-comments/v1"
+	CommentsSchemaVersion = "agent-review-comments/v1"
 )
 
 // TargetMode identifies how the reviewed Git change is selected.

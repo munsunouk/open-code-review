@@ -13,7 +13,7 @@ import (
 	"github.com/open-code-review/open-code-review/internal/scan"
 )
 
-const ScanManifestSchemaVersion = "codex-review-manifest/v1"
+const ScanManifestSchemaVersion = "agent-review-manifest/v1"
 
 // ScanOptions configures deterministic full-file scan preparation.
 type ScanOptions struct {

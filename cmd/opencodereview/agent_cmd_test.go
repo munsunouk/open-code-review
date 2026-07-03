@@ -13,7 +13,7 @@ import (
 	"github.com/open-code-review/open-code-review/internal/reviewbundle"
 )
 
-func TestCodexPrepareEmitsBundleWithoutLLMConfiguration(t *testing.T) {
+func TestAgentPrepareEmitsBundleWithoutLLMConfiguration(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
 	t.Setenv("HOME", t.TempDir())
@@ -33,7 +33,7 @@ func TestCodexPrepareEmitsBundleWithoutLLMConfiguration(t *testing.T) {
 	}
 }
 
-func TestCodexPrepareWritesOnlyExplicitOutputWithRestrictedMode(t *testing.T) {
+func TestAgentPrepareWritesOnlyExplicitOutputWithRestrictedMode(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
 	outputPath := filepath.Join(t.TempDir(), "bundle.json")
@@ -67,7 +67,7 @@ func TestCodexPrepareWritesOnlyExplicitOutputWithRestrictedMode(t *testing.T) {
 	}
 }
 
-func TestCodexPreparePreviewOmitsPatchBodies(t *testing.T) {
+func TestAgentPreparePreviewOmitsPatchBodies(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
 
@@ -87,7 +87,7 @@ func TestCodexPreparePreviewOmitsPatchBodies(t *testing.T) {
 	}
 }
 
-func TestCodexPrepareRejectsConflictingTargets(t *testing.T) {
+func TestAgentPrepareRejectsConflictingTargets(t *testing.T) {
 	var output bytes.Buffer
 	err := runAgentWithWriter(
 		[]string{"prepare", "--from", "main", "--to", "HEAD", "--commit", "HEAD"},
@@ -98,7 +98,7 @@ func TestCodexPrepareRejectsConflictingTargets(t *testing.T) {
 	}
 }
 
-func TestCodexPrepareRejectsOversizedOutput(t *testing.T) {
+func TestAgentPrepareRejectsOversizedOutput(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n// "+strings.Repeat("x", 1024)+"\n")
 
@@ -116,7 +116,7 @@ func TestCodexPrepareRejectsOversizedOutput(t *testing.T) {
 	}
 }
 
-func TestCodexPrepareSplitEmitsLargeDiffManifest(t *testing.T) {
+func TestAgentPrepareSplitEmitsLargeDiffManifest(t *testing.T) {
 	repository := initAgentRepository(t)
 	for _, name := range []string{"one.go", "two.go"} {
 		writeAgentFile(
@@ -145,7 +145,7 @@ func TestCodexPrepareSplitEmitsLargeDiffManifest(t *testing.T) {
 	}
 }
 
-func TestCodexUnknownSubcommand(t *testing.T) {
+func TestAgentUnknownSubcommand(t *testing.T) {
 	var output bytes.Buffer
 	err := runAgentWithWriter([]string{"unknown"}, &output)
 	if err == nil || !strings.Contains(err.Error(), "unknown agent command") {
@@ -208,7 +208,7 @@ func TestAgentAliasHelpUsesAgentCommandName(t *testing.T) {
 	}
 }
 
-func TestCodexValidateCommentsEmitsStructuredResult(t *testing.T) {
+func TestAgentValidateCommentsEmitsStructuredResult(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
 	bundlePath := filepath.Join(t.TempDir(), "bundle.json")
@@ -259,7 +259,7 @@ func TestCodexValidateCommentsEmitsStructuredResult(t *testing.T) {
 	}
 }
 
-func TestCodexReportEmitsMarkdown(t *testing.T) {
+func TestAgentReportEmitsMarkdown(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
 	directory := t.TempDir()
@@ -291,7 +291,7 @@ func TestCodexReportEmitsMarkdown(t *testing.T) {
 	writeAgentJSON(t, commentsPath, comments)
 	validationPath := filepath.Join(directory, "validation.json")
 	writeAgentJSON(t, validationPath, reviewbundle.ValidationResult{
-		SchemaVersion: "codex-review-validation/v1",
+		SchemaVersion: "agent-review-validation/v1",
 		BundleID:      bundle.BundleID,
 		Valid:         true,
 		Errors:        []reviewbundle.ValidationNotice{},
@@ -315,7 +315,7 @@ func TestCodexReportEmitsMarkdown(t *testing.T) {
 	}
 }
 
-func TestCodexContextReadReturnsBundleEnvelope(t *testing.T) {
+func TestAgentContextReadReturnsBundleEnvelope(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
 	bundlePath := filepath.Join(t.TempDir(), "bundle.json")
@@ -345,7 +345,7 @@ func TestCodexContextReadReturnsBundleEnvelope(t *testing.T) {
 	}
 }
 
-func TestCodexContextReadRejectsPathEscape(t *testing.T) {
+func TestAgentContextReadRejectsPathEscape(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
 	bundlePath := filepath.Join(t.TempDir(), "bundle.json")
@@ -366,7 +366,7 @@ func TestCodexContextReadRejectsPathEscape(t *testing.T) {
 	}
 }
 
-func TestCodexValidateCommentsRejectsBundleIDMismatch(t *testing.T) {
+func TestAgentValidateCommentsRejectsBundleIDMismatch(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
 	directory := t.TempDir()
@@ -405,7 +405,7 @@ func TestCodexValidateCommentsRejectsBundleIDMismatch(t *testing.T) {
 	}
 }
 
-func TestCodexReportRejectsBundleIDMismatch(t *testing.T) {
+func TestAgentReportRejectsBundleIDMismatch(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
 	directory := t.TempDir()
@@ -425,7 +425,7 @@ func TestCodexReportRejectsBundleIDMismatch(t *testing.T) {
 	writeAgentJSON(t, commentsPath, comments)
 	validationPath := filepath.Join(directory, "validation.json")
 	writeAgentJSON(t, validationPath, reviewbundle.ValidationResult{
-		SchemaVersion: "codex-review-validation/v1",
+		SchemaVersion: "agent-review-validation/v1",
 		BundleID:      "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		Valid:         true,
 	})
@@ -443,7 +443,7 @@ func TestCodexReportRejectsBundleIDMismatch(t *testing.T) {
 	}
 }
 
-func TestCodexPrepareScanWorksWithoutGitOrLLMConfiguration(t *testing.T) {
+func TestAgentPrepareScanWorksWithoutGitOrLLMConfiguration(t *testing.T) {
 	directory := t.TempDir()
 	writeAgentFile(t, directory, "main.go", "package sample\n\nfunc Main() {}\n")
 	writeAgentFile(t, directory, "README.md", "# Sample\n")
@@ -523,7 +523,7 @@ func TestAgentDispatchIsRegistered(t *testing.T) {
 	}
 }
 
-func TestCodexDispatchIsNotRegistered(t *testing.T) {
+func TestAgentDispatchIsNotRegistered(t *testing.T) {
 	originalArgs := os.Args
 	os.Args = []string{"ocr", "codex", "prepare"}
 	t.Cleanup(func() {
@@ -536,7 +536,7 @@ func TestCodexDispatchIsNotRegistered(t *testing.T) {
 	}
 }
 
-func TestCodexSkillsUseCodexOwnedWorkflow(t *testing.T) {
+func TestAgentSkillsUseHostAgentWorkflow(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join("..", ".."))
 	paths := []string{
 		filepath.Join(repositoryRoot, "skills", "open-code-review", "SKILL.md"),
@@ -550,12 +550,12 @@ func TestCodexSkillsUseCodexOwnedWorkflow(t *testing.T) {
 		),
 	}
 	required := []string{
-		"Codex owns the review",
+		"The host agent owns the review",
 		"ocr agent prepare",
 		"ocr agent validate-comments",
 		"ocr agent report",
 		"ocr agent context",
-		"codex-review-comments/v1",
+		"agent-review-comments/v1",
 		"second-pass",
 		"deduplicate",
 		"project summary",
@@ -586,7 +586,7 @@ func TestCodexSkillsUseCodexOwnedWorkflow(t *testing.T) {
 	}
 }
 
-func TestCodexValidateCommentsFailsWhenInvalid(t *testing.T) {
+func TestAgentValidateCommentsFailsWhenInvalid(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
 	directory := t.TempDir()
@@ -610,7 +610,7 @@ func TestCodexValidateCommentsFailsWhenInvalid(t *testing.T) {
 	}
 	commentsPath := filepath.Join(directory, "comments.json")
 	if err := os.WriteFile(commentsPath, []byte(fmt.Sprintf(`{
-  "schema_version": "codex-review-comments/v1",
+  "schema_version": "agent-review-comments/v1",
   "bundle_id": %q,
   "summary": {"files_reviewed": 2, "issues_found": 0},
   "comments": []
@@ -636,7 +636,7 @@ func TestCodexValidateCommentsFailsWhenInvalid(t *testing.T) {
 	}
 }
 
-func TestCodexReportRequiresValidation(t *testing.T) {
+func TestAgentReportRequiresValidation(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
 	directory := t.TempDir()

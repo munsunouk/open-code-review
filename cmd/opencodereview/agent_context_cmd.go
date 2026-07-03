@@ -14,7 +14,7 @@ import (
 	"github.com/open-code-review/open-code-review/internal/session"
 )
 
-type codexContextOptions struct {
+type agentContextOptions struct {
 	operation     string
 	repoDir       string
 	bundlePath    string
@@ -31,7 +31,7 @@ type codexContextOptions struct {
 	bundleIndex   int
 }
 
-func runCodexContextForCommand(
+func runAgentContextForCommand(
 	ctx context.Context,
 	command string,
 	args []string,
@@ -39,15 +39,15 @@ func runCodexContextForCommand(
 ) error {
 	started := time.Now()
 	if len(args) == 0 {
-		printCodexContextUsage(writer, command)
+		printAgentContextUsage(writer, command)
 		return nil
 	}
-	options, err := parseCodexContextFlags(command, args[0], args[1:])
+	options, err := parseAgentContextFlags(command, args[0], args[1:])
 	if err != nil {
 		return err
 	}
 	if options.showHelp {
-		printCodexContextUsage(writer, command)
+		printAgentContextUsage(writer, command)
 		return nil
 	}
 	bundleContent, err := os.ReadFile(options.bundlePath)
@@ -77,12 +77,12 @@ func runCodexContextForCommand(
 	if err != nil {
 		return err
 	}
-	if err := recordCodexEvent(
+	if err := recordAgentEvent(
 		repoDir,
 		options.sessionID,
 		bundle.BundleID,
 		"context."+options.operation,
-		session.CodexEvent{
+		session.AgentEvent{
 			ContextCalls: 1,
 			DurationMS:   time.Since(started).Milliseconds(),
 		},
@@ -101,7 +101,7 @@ func runCodexContextForCommand(
 func executeContextOperation(
 	ctx context.Context,
 	service *reviewbundle.ContextService,
-	options codexContextOptions,
+	options agentContextOptions,
 ) (reviewbundle.ContextResult, error) {
 	switch options.operation {
 	case "read":
@@ -123,9 +123,9 @@ func executeContextOperation(
 	}
 }
 
-func parseCodexContextFlags(command string, operation string, args []string) (codexContextOptions, error) {
+func parseAgentContextFlags(command string, operation string, args []string) (agentContextOptions, error) {
 	flags := newOcrFlagSet("ocr " + command + " context " + operation)
-	options := codexContextOptions{operation: operation, bundleIndex: -1}
+	options := agentContextOptions{operation: operation, bundleIndex: -1}
 	flags.StringVar(&options.repoDir, "repo", "", "repository root")
 	flags.StringVar(&options.bundlePath, "bundle", "", "review bundle JSON path")
 	flags.StringVar(&options.path, "path", "", "file path or comma-separated paths")
@@ -166,7 +166,7 @@ func parseCodexContextFlags(command string, operation string, args []string) (co
 	return options, nil
 }
 
-func printCodexContextUsage(writer io.Writer, command string) {
+func printAgentContextUsage(writer io.Writer, command string) {
 	fmt.Fprintln(writer, `Usage:
   ocr `+command+` context read --bundle FILE --path FILE [--start-line N --max-lines N]
   ocr `+command+` context find --bundle FILE --query NAME

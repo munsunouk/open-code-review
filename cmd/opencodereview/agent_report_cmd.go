@@ -12,7 +12,7 @@ import (
 	"github.com/open-code-review/open-code-review/internal/session"
 )
 
-type codexReportOptions struct {
+type agentReportOptions struct {
 	bundlePath     string
 	commentsPath   string
 	validationPath string
@@ -23,17 +23,17 @@ type codexReportOptions struct {
 	showHelp       bool
 }
 
-func runCodexReportForCommand(command string, args []string, writer io.Writer) error {
+func runAgentReportForCommand(command string, args []string, writer io.Writer) error {
 	started := time.Now()
-	options, err := parseCodexReportFlags(command, args)
+	options, err := parseAgentReportFlags(command, args)
 	if err != nil {
 		return err
 	}
 	if options.showHelp {
-		printCodexReportUsage(writer, command)
+		printAgentReportUsage(writer, command)
 		return nil
 	}
-	bundle, comments, err := loadCodexInputs(options.bundlePath, options.commentsPath)
+	bundle, comments, err := loadAgentInputs(options.bundlePath, options.commentsPath)
 	if err != nil {
 		return err
 	}
@@ -60,12 +60,12 @@ func runCodexReportForCommand(command string, args []string, writer io.Writer) e
 			}
 		}
 		valid := validation.Valid
-		if err := recordCodexEvent(
+		if err := recordAgentEvent(
 			repoDir,
 			options.sessionID,
 			bundle.BundleID,
 			"report",
-			session.CodexEvent{
+			session.AgentEvent{
 				Files:           comments.Summary.FilesReviewed,
 				Findings:        len(comments.Comments),
 				Warnings:        len(comments.Warnings),
@@ -85,9 +85,9 @@ func runCodexReportForCommand(command string, args []string, writer io.Writer) e
 	return err
 }
 
-func parseCodexReportFlags(command string, args []string) (codexReportOptions, error) {
+func parseAgentReportFlags(command string, args []string) (agentReportOptions, error) {
 	flags := newOcrFlagSet("ocr " + command + " report")
-	options := codexReportOptions{}
+	options := agentReportOptions{}
 	flags.StringVar(&options.bundlePath, "bundle", "", "review bundle JSON path")
 	flags.StringVar(&options.commentsPath, "comments", "", agentCommentsHelp(command))
 	flags.StringVar(&options.validationPath, "validation", "", "validation result JSON path from validate-comments")
@@ -116,7 +116,7 @@ func parseCodexReportFlags(command string, args []string) (codexReportOptions, e
 	return options, nil
 }
 
-func loadCodexInputs(bundlePath, commentsPath string) (*reviewbundle.Bundle, *reviewbundle.Comments, error) {
+func loadAgentInputs(bundlePath, commentsPath string) (*reviewbundle.Bundle, *reviewbundle.Comments, error) {
 	commentsFile, err := os.Open(commentsPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open comments: %w", err)
@@ -129,14 +129,14 @@ func loadCodexInputs(bundlePath, commentsPath string) (*reviewbundle.Bundle, *re
 	if closeErr != nil {
 		return nil, nil, fmt.Errorf("close comments: %w", closeErr)
 	}
-	bundle, err := loadCodexBundleByID(bundlePath, comments.BundleID)
+	bundle, err := loadAgentBundleByID(bundlePath, comments.BundleID)
 	if err != nil {
 		return nil, nil, err
 	}
 	return bundle, comments, nil
 }
 
-func loadCodexBundleByID(path, bundleID string) (*reviewbundle.Bundle, error) {
+func loadAgentBundleByID(path, bundleID string) (*reviewbundle.Bundle, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read bundle: %w", err)
@@ -183,7 +183,7 @@ func loadValidationResult(path string) (*reviewbundle.ValidationResult, error) {
 	return &result, nil
 }
 
-func printCodexReportUsage(writer io.Writer, command string) {
+func printAgentReportUsage(writer io.Writer, command string) {
 	fmt.Fprintln(writer, `Usage:
   ocr `+command+` report --bundle FILE --comments FILE --validation FILE
                    [--format markdown|text|json]

@@ -11,7 +11,7 @@ import (
 
 func TestLoadCommentsRejectsUnknownFields(t *testing.T) {
 	input := `{
-		"schema_version":"codex-review-comments/v1",
+		"schema_version":"agent-review-comments/v1",
 		"bundle_id":"sha256:test",
 		"summary":{"files_reviewed":0,"issues_found":0},
 		"comments":[],
@@ -31,13 +31,13 @@ func TestLoadCommentsRejectsMissingRequiredFields(t *testing.T) {
 	}{
 		{
 			name:  "summary files reviewed",
-			input: `{"schema_version":"codex-review-comments/v1","bundle_id":"sha256:test","summary":{"issues_found":0},"comments":[]}`,
+			input: `{"schema_version":"agent-review-comments/v1","bundle_id":"sha256:test","summary":{"issues_found":0},"comments":[]}`,
 			want:  "summary.files_reviewed",
 		},
 		{
 			name: "comment recommendation",
 			input: `{
-				"schema_version":"codex-review-comments/v1",
+				"schema_version":"agent-review-comments/v1",
 				"bundle_id":"sha256:test",
 				"summary":{"files_reviewed":1,"issues_found":1},
 				"comments":[{
@@ -211,7 +211,7 @@ func validationBundle() *Bundle {
 			HeadSHA:    "0123456789abcdef",
 			DiffSHA256: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
 		},
-		Summary:       Summary{TotalFiles: 1, ReviewableFiles: 1},
+		Summary: Summary{TotalFiles: 1, ReviewableFiles: 1},
 		Rules: map[string]Rule{
 			"rule-1": {Source: "system", Pattern: "**/*.go", Content: "Review Go."},
 		},

@@ -23,9 +23,9 @@ func TestEmbeddedSchemasAreStrictVersionedJSON(t *testing.T) {
 			if err := json.Unmarshal(test.content, &schema); err != nil {
 				t.Fatalf("decode embedded schema: %v", err)
 			}
-			if got := schema["$id"]; got != "https://github.com/alibaba/open-code-review/schemas/codex-review-bundle/v1" &&
-				got != "https://github.com/alibaba/open-code-review/schemas/codex-review-comments/v1" &&
-				got != "https://github.com/alibaba/open-code-review/schemas/codex-review-manifest/v1" {
+			if got := schema["$id"]; got != "https://github.com/alibaba/open-code-review/schemas/agent-review-bundle/v1" &&
+				got != "https://github.com/alibaba/open-code-review/schemas/agent-review-comments/v1" &&
+				got != "https://github.com/alibaba/open-code-review/schemas/agent-review-manifest/v1" {
 				t.Fatalf("$id = %v, want absolute schema URI", got)
 			}
 			if got := schema["additionalProperties"]; got != false {
@@ -69,7 +69,7 @@ func TestBundleJSONUsesStableProtocolFields(t *testing.T) {
 	}
 	text := string(encoded)
 	for _, field := range []string{
-		`"schema_version":"codex-review-bundle/v1"`,
+		`"schema_version":"agent-review-bundle/v1"`,
 		`"bundle_id":"sha256:bundle"`,
 		`"diff_sha256":"sha256:diff"`,
 		`"content_sha256":"sha256:content"`,

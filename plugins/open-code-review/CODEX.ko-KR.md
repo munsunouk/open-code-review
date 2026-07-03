@@ -57,7 +57,7 @@ ocr agent context read \
   --path internal/example.go
 ```
 
-Codex가 `codex-review-comments/v1`을 생성한 뒤에는 반드시 검증을 실행합니다.
+Codex가 `agent-review-comments/v1`을 생성한 뒤에는 반드시 검증을 실행합니다.
 
 ```bash
 ocr agent validate-comments \

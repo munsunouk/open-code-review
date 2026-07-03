@@ -69,7 +69,7 @@ func TestReportRejectsInvalidValidation(t *testing.T) {
 		Comments:      []ReviewComment{},
 	}
 	validation := &ValidationResult{
-		SchemaVersion: "codex-review-validation/v1",
+		SchemaVersion: "agent-review-validation/v1",
 		BundleID:      bundle.BundleID,
 		Valid:         false,
 		Errors: []ValidationNotice{{
@@ -98,7 +98,7 @@ func TestReportRejectsValidationBundleMismatch(t *testing.T) {
 		Comments:      []ReviewComment{},
 	}
 	validation := &ValidationResult{
-		SchemaVersion: "codex-review-validation/v1",
+		SchemaVersion: "agent-review-validation/v1",
 		BundleID:      "sha256:other",
 		Valid:         true,
 	}

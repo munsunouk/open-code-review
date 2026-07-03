@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/alibaba/open-code-review/schemas/codex-review-comments/v1",
+  "$id": "https://github.com/alibaba/open-code-review/schemas/agent-review-comments/v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "bundle_id", "summary", "comments"],
   "properties": {
-    "schema_version": {"const": "codex-review-comments/v1"},
+    "schema_version": {"const": "agent-review-comments/v1"},
     "bundle_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "summary": {"$ref": "#/$defs/summary"},
     "comments": {"type": "array", "items": {"$ref": "#/$defs/comment"}},

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// safeSessionID matches session.OpenCodexRecorder run ID rules.
+// safeSessionID matches session.OpenAgentRecorder run ID rules.
 var safeSessionID = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
 // ValidateSessionID rejects path traversal and malformed session identifiers.

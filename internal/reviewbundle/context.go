@@ -23,12 +23,12 @@ type ContextResult struct {
 
 // ContextService exposes target-aware read-only repository tools.
 type ContextService struct {
-	repoDir  string
-	bundle   *Bundle
-	runner   *gitcmd.Runner
-	reader   *tool.FileReader
-	readyMu  sync.Mutex
-	readyOk  bool
+	repoDir string
+	bundle  *Bundle
+	runner  *gitcmd.Runner
+	reader  *tool.FileReader
+	readyMu sync.Mutex
+	readyOk bool
 }
 
 // NewContextService binds all subsequent operations to one bundle identity.
@@ -418,7 +418,7 @@ func (service *ContextService) ready(ctx context.Context) error {
 
 func (service *ContextService) result(operation, result string) ContextResult {
 	return ContextResult{
-		SchemaVersion: "codex-review-context/v1",
+		SchemaVersion: "agent-review-context/v1",
 		BundleID:      service.bundle.BundleID,
 		Operation:     operation,
 		Result:        result,

@@ -99,12 +99,12 @@
 </ul>
 {{end}}
 
-{{if .Session.CodexEvents}}
+{{if .Session.AgentEvents}}
 <h3>Agent workflow events</h3>
 <table class="token-table">
     <thead><tr><th>Event</th><th>Bundle</th><th>Files</th><th>Findings</th><th>Warnings</th><th>Context</th><th>Partial</th><th>Valid</th><th>Duration</th><th>Error</th></tr></thead>
     <tbody>
-    {{range .Session.CodexEvents}}
+    {{range .Session.AgentEvents}}
         <tr>
             <td>{{.Event}}</td>
             <td>{{if .BundleID}}<code>{{.BundleID}}</code>{{else}}-{{end}}</td>

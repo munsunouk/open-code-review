@@ -99,11 +99,6 @@ func newDefaultSessionSummary() SessionSummary {
 	return SessionSummary{ControlPlane: defaultControlPlane, TokenUsageAvailable: true}
 }
 
-func isLegacyCodexOwnedRecord(rec map[string]any) bool {
-	value, _ := rec["controlPlane"].(string)
-	return value == "codex-owned"
-}
-
 // ListSessions returns lightweight summaries for all sessions in a repo subdir.
 func ListSessions(root, encodedRepo string) ([]SessionSummary, error) {
 	repoDir := filepath.Join(root, encodedRepo)
@@ -155,9 +150,6 @@ func peekSession(path string) (SessionSummary, error) {
 			if err := json.Unmarshal(line, &rec); err != nil {
 				continue
 			}
-			if isLegacyCodexOwnedRecord(rec) {
-				return SessionSummary{}, fmt.Errorf("legacy codex-owned session records are no longer supported")
-			}
 			if ts, ok := rec["timestamp"].(string); ok {
 				summary.Timestamp, _ = time.Parse(time.RFC3339, ts)
 			}
@@ -182,7 +174,7 @@ func peekSession(path string) (SessionSummary, error) {
 			if v, ok := rec["diffCommit"].(string); ok {
 				summary.DiffCommit = v
 			}
-			parseCodexSessionStartFields(rec, &summary)
+			parseAgentSessionStartFields(rec, &summary)
 		}
 	}
 
@@ -216,11 +208,11 @@ type ViewSession struct {
 	Summary     SessionSummary
 	TokenUsage  TokenUsageSummary
 	Files       []*FileGroup // ordered by file path
-	CodexEvents []CodexEvent
+	AgentEvents []AgentEvent
 }
 
-// CodexEvent is a read-only viewer representation of one host-agent workflow event.
-type CodexEvent struct {
+// AgentEvent is a read-only viewer representation of one host-agent workflow event.
+type AgentEvent struct {
 	Event           string
 	BundleID        string
 	DurationMS      int64
@@ -310,7 +302,7 @@ func LoadSession(root, encodedRepo, sessionID string) (*ViewSession, error) {
 	vs := &ViewSession{
 		Summary:     newDefaultSessionSummary(),
 		Files:       make([]*FileGroup, 0),
-		CodexEvents: make([]CodexEvent, 0),
+		AgentEvents: make([]AgentEvent, 0),
 	}
 	fileIndex := make(map[string]*FileGroup)
 
@@ -327,9 +319,6 @@ func LoadSession(root, encodedRepo, sessionID string) (*ViewSession, error) {
 
 		switch typ {
 		case "session_start":
-			if isLegacyCodexOwnedRecord(rec) {
-				return nil, fmt.Errorf("legacy codex-owned session records are no longer supported")
-			}
 			if ts, ok := rec["timestamp"].(string); ok {
 				vs.Summary.Timestamp, _ = time.Parse(time.RFC3339, ts)
 			}
@@ -354,7 +343,7 @@ func LoadSession(root, encodedRepo, sessionID string) (*ViewSession, error) {
 			if v, ok := rec["diffCommit"].(string); ok {
 				vs.Summary.DiffCommit = v
 			}
-			parseCodexSessionStartFields(rec, &vs.Summary)
+			parseAgentSessionStartFields(rec, &vs.Summary)
 
 		case "agent_event":
 			event, _ := rec["event"].(string)
@@ -364,7 +353,7 @@ func LoadSession(root, encodedRepo, sessionID string) (*ViewSession, error) {
 			if value, ok := rec["duration_ms"].(float64); ok {
 				duration = int64(value)
 			}
-			agentEvent := CodexEvent{
+			agentEvent := AgentEvent{
 				Event: event, BundleID: bundleID, DurationMS: duration, Error: errorMessage,
 			}
 			if value, ok := rec["files"].(float64); ok {
@@ -386,7 +375,7 @@ func LoadSession(root, encodedRepo, sessionID string) (*ViewSession, error) {
 				valid := value
 				agentEvent.ValidationValid = &valid
 			}
-			vs.CodexEvents = append(vs.CodexEvents, agentEvent)
+			vs.AgentEvents = append(vs.AgentEvents, agentEvent)
 
 		case "llm_request":
 			fp, _ := rec["filePath"].(string)
@@ -574,7 +563,7 @@ func LoadSession(root, encodedRepo, sessionID string) (*ViewSession, error) {
 	return vs, scanner.Err()
 }
 
-func parseCodexSessionStartFields(rec map[string]any, summary *SessionSummary) {
+func parseAgentSessionStartFields(rec map[string]any, summary *SessionSummary) {
 	if value, ok := rec["controlPlane"].(string); ok {
 		summary.ControlPlane = value
 	}

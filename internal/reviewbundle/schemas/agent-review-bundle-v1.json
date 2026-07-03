@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/alibaba/open-code-review/schemas/codex-review-bundle/v1",
+  "$id": "https://github.com/alibaba/open-code-review/schemas/agent-review-bundle/v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "bundle_id", "target", "summary", "rules", "files", "contract"],
   "properties": {
-    "schema_version": {"const": "codex-review-bundle/v1"},
+    "schema_version": {"const": "agent-review-bundle/v1"},
     "bundle_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "target": {"$ref": "#/$defs/target"},
     "workspace_state": {"$ref": "#/$defs/workspace_state"},
@@ -102,7 +102,7 @@
       "additionalProperties": false,
       "required": ["comment_schema", "line_numbers", "allowed_priorities", "allowed_categories", "max_bundle_bytes", "bundle_size_bytes", "requires_reflection"],
       "properties": {
-        "comment_schema": {"const": "codex-review-comments/v1"},
+        "comment_schema": {"const": "agent-review-comments/v1"},
         "line_numbers": {"const": "one_based_new_file"},
         "allowed_priorities": {"type": "array", "items": {"enum": ["high", "medium", "low"]}},
         "allowed_categories": {"type": "array", "items": {"enum": ["bug", "security", "performance", "concurrency", "maintainability", "test"]}},

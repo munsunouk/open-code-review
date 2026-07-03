@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/alibaba/open-code-review/schemas/codex-review-manifest/v1",
+  "$id": "https://github.com/alibaba/open-code-review/schemas/agent-review-manifest/v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -17,7 +17,7 @@
     "bundles"
   ],
   "properties": {
-    "schema_version": {"const": "codex-review-manifest/v1"},
+    "schema_version": {"const": "agent-review-manifest/v1"},
     "manifest_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "root": {"type": "string"},
     "target_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
@@ -66,7 +66,7 @@
       "type": "object",
       "required": ["schema_version", "bundle_id", "target", "summary", "rules", "files", "contract"],
       "properties": {
-        "schema_version": {"const": "codex-review-bundle/v1"},
+        "schema_version": {"const": "agent-review-bundle/v1"},
         "bundle_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
         "target": {"type": "object"},
         "summary": {"type": "object"},

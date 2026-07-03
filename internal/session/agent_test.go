@@ -5,23 +5,24 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
-func TestCodexRecorderPersistsCorrelatedReadOnlyAgentRun(t *testing.T) {
+func TestAgentRecorderPersistsCorrelatedReadOnlyAgentRun(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	repository := t.TempDir()
-	recorder, err := OpenCodexRecorder(repository, "run-123", "sha256:bundle")
+	recorder, err := OpenAgentRecorder(repository, "run-123", "sha256:bundle")
 	if err != nil {
-		t.Fatalf("OpenCodexRecorder() error = %v", err)
+		t.Fatalf("OpenAgentRecorder() error = %v", err)
 	}
-	if err := recorder.Record("prepare", CodexEvent{
+	if err := recorder.Record("prepare", AgentEvent{
 		Files: 3, Warnings: 1, Partial: true, DurationMS: 25,
 	}); err != nil {
 		t.Fatalf("Record() error = %v", err)
 	}
-	if err := recorder.Finalize(CodexEvent{Findings: 2, ValidationValid: boolPointer(true)}); err != nil {
+	if err := recorder.Finalize(AgentEvent{Findings: 2, ValidationValid: boolPointer(true)}); err != nil {
 		t.Fatalf("Finalize() error = %v", err)
 	}
 
@@ -65,7 +66,7 @@ func TestCodexRecorderPersistsCorrelatedReadOnlyAgentRun(t *testing.T) {
 	}
 }
 
-func TestCodexRecorderRestoresStartTimeWhenResuming(t *testing.T) {
+func TestAgentRecorderRestoresStartTimeWhenResuming(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	repository := t.TempDir()
@@ -79,21 +80,21 @@ func TestCodexRecorderRestoresStartTimeWhenResuming(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	recorder, err := OpenCodexRecorder(repository, "run-123", "sha256:bundle")
+	recorder, err := OpenAgentRecorder(repository, "run-123", "sha256:bundle")
 	if err != nil {
-		t.Fatalf("OpenCodexRecorder() error = %v", err)
+		t.Fatalf("OpenAgentRecorder() error = %v", err)
 	}
-	if err := recorder.Finalize(CodexEvent{}); err != nil {
+	if err := recorder.Finalize(AgentEvent{}); err != nil {
 		t.Fatalf("Finalize() error = %v", err)
 	}
-	records := readCodexRecords(t, recorder.Path())
+	records := readAgentRecords(t, recorder.Path())
 	duration, ok := records[len(records)-1]["duration_seconds"].(float64)
 	if !ok || duration < 60*60 {
 		t.Fatalf("duration_seconds = %v, want resumed duration from original start", records[len(records)-1]["duration_seconds"])
 	}
 }
 
-func TestCodexRecorderRecoversOrphanedEmptySessionFile(t *testing.T) {
+func TestAgentRecorderRecoversOrphanedEmptySessionFile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	repository := t.TempDir()
@@ -106,17 +107,50 @@ func TestCodexRecorderRecoversOrphanedEmptySessionFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	recorder, err := OpenCodexRecorder(repository, "run-orphan", "sha256:bundle")
+	recorder, err := OpenAgentRecorder(repository, "run-orphan", "sha256:bundle")
 	if err != nil {
-		t.Fatalf("OpenCodexRecorder() error = %v", err)
+		t.Fatalf("OpenAgentRecorder() error = %v", err)
 	}
-	records := readCodexRecords(t, recorder.Path())
+	records := readAgentRecords(t, recorder.Path())
 	if len(records) != 1 || records[0]["type"] != "session_start" {
 		t.Fatalf("records = %+v, want single session_start", records)
 	}
 }
 
-func readCodexRecords(t *testing.T, path string) []map[string]any {
+func TestAgentRecorderRejectsInvalidSessionID(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if _, err := OpenAgentRecorder(t.TempDir(), "../bad", "sha256:bundle"); err == nil {
+		t.Fatal("OpenAgentRecorder() error = nil, want invalid session ID")
+	}
+}
+
+func TestAgentRecorderRejectsResumeBundleMismatch(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	repository := t.TempDir()
+	directory := filepath.Join(home, ".opencodereview", "sessions", encodeRepoPath(repository))
+	if err := os.MkdirAll(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "run-123.jsonl")
+	if err := os.WriteFile(
+		path,
+		[]byte(`{"type":"session_start","timestamp":"not-rfc3339","bundleId":"sha256:old"}`+"\n"),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := OpenAgentRecorder(repository, "run-123", "sha256:new")
+	if err == nil || !strings.Contains(err.Error(), "already bound") {
+		t.Fatalf("OpenAgentRecorder() error = %v, want bundle mismatch", err)
+	}
+	if got := readAgentSessionStart(path, time.Unix(123, 0)); !got.Equal(time.Unix(123, 0)) {
+		t.Fatalf("readAgentSessionStart() = %v, want fallback", got)
+	}
+}
+
+func readAgentRecords(t *testing.T, path string) []map[string]any {
 	t.Helper()
 	file, err := os.Open(path)
 	if err != nil {

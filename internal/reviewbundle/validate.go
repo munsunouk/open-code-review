@@ -38,7 +38,7 @@ func ValidateComments(
 	runner *gitcmd.Runner,
 ) ValidationResult {
 	result := ValidationResult{
-		SchemaVersion: "codex-review-validation/v1",
+		SchemaVersion: "agent-review-validation/v1",
 		Errors:        make([]ValidationNotice, 0),
 		Warnings:      make([]ValidationNotice, 0),
 	}
