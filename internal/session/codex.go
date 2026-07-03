@@ -54,25 +54,14 @@ func OpenCodexRecorder(repoDir, runID, bundleID string) (*CodexRecorder, error) 
 		path: path, runID: runID, bundleID: bundleID, started: time.Now(),
 	}
 	info, statErr := os.Stat(path)
-	if statErr == nil && info.Size() > 0 {
-		recorder.started = readCodexSessionStart(path, recorder.started)
-		existingBundleID, readErr := readCodexSessionBundleID(path)
-		if readErr != nil {
-			return nil, readErr
+	if statErr == nil {
+		if info.Size() > 0 {
+			return finishResumeCodexRecorder(recorder, bundleID, runID)
 		}
-		if existingBundleID != "" {
-			if bundleID != "" && bundleID != existingBundleID {
-				return nil, fmt.Errorf(
-					"session %q is already bound to bundle %q",
-					runID,
-					existingBundleID,
-				)
-			}
-			recorder.bundleID = existingBundleID
+		if err := os.Remove(path); err != nil {
+			return nil, fmt.Errorf("remove orphaned session file: %w", err)
 		}
-		return recorder, nil
-	}
-	if statErr != nil && !os.IsNotExist(statErr) {
+	} else if !os.IsNotExist(statErr) {
 		return nil, fmt.Errorf("stat session file: %w", statErr)
 	}
 	if err := recorder.writeExclusiveStart(map[string]any{
@@ -88,10 +77,40 @@ func OpenCodexRecorder(repoDir, runID, bundleID string) (*CodexRecorder, error) 
 		"bundleId":     bundleID,
 		"tokenUsage":   "not_available",
 	}); err != nil {
-		if os.IsExist(err) {
-			return OpenCodexRecorder(repoDir, runID, bundleID)
+		if !os.IsExist(err) {
+			return nil, err
 		}
-		return nil, err
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			return nil, fmt.Errorf("stat session file after create race: %w", statErr)
+		}
+		if info.Size() == 0 {
+			return nil, fmt.Errorf("session %q exists but has no session_start record", runID)
+		}
+		return finishResumeCodexRecorder(recorder, bundleID, runID)
+	}
+	return recorder, nil
+}
+
+func finishResumeCodexRecorder(
+	recorder *CodexRecorder,
+	bundleID string,
+	runID string,
+) (*CodexRecorder, error) {
+	recorder.started = readCodexSessionStart(recorder.path, recorder.started)
+	existingBundleID, readErr := readCodexSessionBundleID(recorder.path)
+	if readErr != nil {
+		return nil, readErr
+	}
+	if existingBundleID != "" {
+		if bundleID != "" && bundleID != existingBundleID {
+			return nil, fmt.Errorf(
+				"session %q is already bound to bundle %q",
+				runID,
+				existingBundleID,
+			)
+		}
+		recorder.bundleID = existingBundleID
 	}
 	return recorder, nil
 }

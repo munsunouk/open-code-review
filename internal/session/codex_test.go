@@ -93,6 +93,29 @@ func TestCodexRecorderRestoresStartTimeWhenResuming(t *testing.T) {
 	}
 }
 
+func TestCodexRecorderRecoversOrphanedEmptySessionFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	repository := t.TempDir()
+	directory := filepath.Join(home, ".opencodereview", "sessions", encodeRepoPath(repository))
+	if err := os.MkdirAll(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "run-orphan.jsonl")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	recorder, err := OpenCodexRecorder(repository, "run-orphan", "sha256:bundle")
+	if err != nil {
+		t.Fatalf("OpenCodexRecorder() error = %v", err)
+	}
+	records := readCodexRecords(t, recorder.Path())
+	if len(records) != 1 || records[0]["type"] != "session_start" {
+		t.Fatalf("records = %+v, want single session_start", records)
+	}
+}
+
 func readCodexRecords(t *testing.T, path string) []map[string]any {
 	t.Helper()
 	file, err := os.Open(path)
