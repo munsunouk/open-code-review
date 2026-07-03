@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -80,16 +79,32 @@ func OpenAgentRecorder(repoDir, runID, bundleID string) (*AgentRecorder, error) 
 		if !os.IsExist(err) {
 			return nil, err
 		}
-		info, statErr := os.Stat(path)
+		resumed, resumeErr := waitForAgentSessionStart(recorder, bundleID, runID)
+		if resumeErr != nil {
+			return nil, resumeErr
+		}
+		return resumed, nil
+	}
+	return recorder, nil
+}
+
+func waitForAgentSessionStart(
+	recorder *AgentRecorder,
+	bundleID string,
+	runID string,
+) (*AgentRecorder, error) {
+	const attempts = 20
+	for attempt := 0; attempt < attempts; attempt++ {
+		info, statErr := os.Stat(recorder.path)
 		if statErr != nil {
 			return nil, fmt.Errorf("stat session file after create race: %w", statErr)
 		}
-		if info.Size() == 0 {
-			return nil, fmt.Errorf("session %q exists but has no session_start record", runID)
+		if info.Size() > 0 {
+			return finishResumeAgentRecorder(recorder, bundleID, runID)
 		}
-		return finishResumeAgentRecorder(recorder, bundleID, runID)
+		time.Sleep(25 * time.Millisecond)
 	}
-	return recorder, nil
+	return nil, fmt.Errorf("session %q exists but has no session_start record", runID)
 }
 
 func finishResumeAgentRecorder(
@@ -103,14 +118,9 @@ func finishResumeAgentRecorder(
 		return nil, readErr
 	}
 	if existingBundleID != "" {
-		if bundleID != "" && bundleID != existingBundleID {
-			return nil, fmt.Errorf(
-				"session %q is already bound to bundle %q",
-				runID,
-				existingBundleID,
-			)
-		}
 		recorder.bundleID = existingBundleID
+	} else if bundleID != "" {
+		recorder.bundleID = bundleID
 	}
 	return recorder, nil
 }
@@ -121,15 +131,15 @@ func (recorder *AgentRecorder) Path() string {
 }
 
 // Record appends one correlated host-agent workflow event.
-func (recorder *AgentRecorder) Record(event string, details AgentEvent) error {
-	record := agentEventRecord(recorder, "agent_event", details)
+func (recorder *AgentRecorder) Record(event string, bundleID string, details AgentEvent) error {
+	record := agentEventRecord(recorder, "agent_event", bundleID, details)
 	record["event"] = event
 	return recorder.write(record)
 }
 
 // Finalize appends a viewer-compatible session end record.
-func (recorder *AgentRecorder) Finalize(details AgentEvent) error {
-	record := agentEventRecord(recorder, "session_end", details)
+func (recorder *AgentRecorder) Finalize(bundleID string, details AgentEvent) error {
+	record := agentEventRecord(recorder, "session_end", bundleID, details)
 	record["duration_seconds"] = time.Since(recorder.started).Seconds()
 	record["files_reviewed"] = details.FilesReviewed
 	record["llm_failures"] = 0
@@ -139,6 +149,7 @@ func (recorder *AgentRecorder) Finalize(details AgentEvent) error {
 func agentEventRecord(
 	recorder *AgentRecorder,
 	recordType string,
+	bundleID string,
 	details AgentEvent,
 ) map[string]any {
 	var fields map[string]any
@@ -155,7 +166,11 @@ func agentEventRecord(
 	fields["sessionId"] = recorder.runID
 	fields["timestamp"] = time.Now().UTC().Format(time.RFC3339)
 	fields["controlPlane"] = "agent"
-	fields["bundleId"] = recorder.bundleID
+	if bundleID != "" {
+		fields["bundleId"] = bundleID
+	} else if recorder.bundleID != "" {
+		fields["bundleId"] = recorder.bundleID
+	}
 	fields["tokenUsage"] = "not_available"
 	return fields
 }
@@ -268,12 +283,4 @@ func (recorder *AgentRecorder) write(record map[string]any) error {
 		return fmt.Errorf("close agent session: %w", closeErr)
 	}
 	return nil
-}
-
-func lockSessionFile(file *os.File) error {
-	return syscall.Flock(int(file.Fd()), syscall.LOCK_EX)
-}
-
-func unlockSessionFile(file *os.File) error {
-	return syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
 }
