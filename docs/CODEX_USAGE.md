@@ -42,7 +42,7 @@ Codex 会自动走新的主导路径：
 
 1. 先调用 `ocr agent prepare` 生成 review bundle。
 2. 再由 Codex 读取 bundle、补充上下文并完成判断。
-3. 需要时再调用 `validate-comments` 和 `report`。
+3. 必须先调用 `validate-comments`，再调用 `report`；`report` 必须传入 `--validation`，且 validation 无效时不得生成报告。`validate-comments` 校验失败时退出码为 **2**，工具错误为 **1**（详见 `docs/CODEX_MIGRATION.md`）。
 4. 只有你明确要求修复时，才会修改工作区文件。
 
 ## 3. 在 Codex CLI 里怎么用

@@ -179,8 +179,9 @@ jobs:
             const runId = Number.isFinite(context.runId) ? context.runId : 0;
             const runAttempt = Number.isFinite(context.runAttempt) ? context.runAttempt : 1;
             const RUN_TAG = `${runId}-${runAttempt}`;
+            const SUMMARY_NONCE = crypto.randomBytes(16).toString('hex');
             const REVIEW_TAG = `<!-- ocr-review-run:${RUN_TAG} -->`;
-            const SUMMARY_TAG = `<!-- ocr-summary-run:${RUN_TAG} -->`;
+            const SUMMARY_TAG = `<!-- ocr-summary-run:${RUN_TAG}:${SUMMARY_NONCE} -->`;
 
             // Read OCR output
             let result;
@@ -514,7 +515,8 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issueNumber: prNumber,
-                id: SUMMARY_TAG
+                id: SUMMARY_TAG,
+                requireActionsBot: true,
               });
               if (summaryAlreadyPosted === true) {
                 console.log('Summary comment with this run tag already exists; skipping.');
@@ -696,18 +698,25 @@ jobs:
             // to false) lets the caller decide whether to skip posting or
             // degrade gracefully, instead of silently risking a duplicate
             // summary comment.
-            async function hasIssueCommentWithId({ owner, repo, issueNumber, id }) {
+            function isGitHubActionsBot(user) {
+              return user && user.type === 'Bot' && String(user.login || '').endsWith('[bot]');
+            }
+
+            async function hasIssueCommentWithId({ owner, repo, issueNumber, id, requireActionsBot = false }) {
               try {
                 const comments = await readAllPages('listIssueComments', (page, per_page) =>
                   github.rest.issues.listComments({ owner, repo, issue_number: issueNumber, per_page, page })
                 );
                 // `id` may already be a full HTML comment (for example
-                // `<!-- ocr-summary-run:... -->`). Match it directly instead of
-                // wrapping it in another comment pair.
+                // `<!-- ocr-summary-run:... -->`). Match it at the body start
+                // from the Actions bot so fork PR authors cannot plant tags.
                 return comments.some((c) => {
+                  if (requireActionsBot && !isGitHubActionsBot(c.user)) {
+                    return false;
+                  }
                   const body = c.body || '';
                   if (id.startsWith('<!--')) {
-                    return body.includes(id);
+                    return body.startsWith(id);
                   }
                   const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                   const tagRe = new RegExp('<!--\\s*' + escaped + '\\s*-->');

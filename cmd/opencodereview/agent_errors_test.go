@@ -143,7 +143,22 @@ func TestAgentCommandUsageAndPrepareValidationEdges(t *testing.T) {
 				scan:           true,
 				split:          true,
 			},
-			want: "--split",
+			want: "--split is for diff targets",
+		},
+		{
+			name: "scan with from",
+			options: agentPrepareOptions{
+				format:         "json",
+				maxBundleBytes: 1,
+				maxGitProcs:    1,
+				maxFileBytes:   1,
+				batchSize:      1,
+				batchStrategy:  "none",
+				scan:           true,
+				from:           "main",
+				to:             "HEAD",
+			},
+			want: "--scan cannot be combined",
 		},
 		{
 			name: "preview output",

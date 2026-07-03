@@ -23,6 +23,8 @@ ocr agent prepare --format json --output /tmp/bundle.json
 
 Produce `agent-review-comments/v1` JSON that references the bundle `bundle_id`. Use `ocr agent context` when deeper repository context is required.
 
+Silently discard low-confidence findings before continuing.
+
 ### Step 3: Validate comments
 
 ```bash
@@ -32,7 +34,7 @@ ocr agent validate-comments \
   --output /tmp/validation.json
 ```
 
-Treat a non-zero exit code as a blocking failure even when JSON output is present.
+Treat exit code **2** as validation failure and exit code **1** as tool/infrastructure errors. Do not render a report when validation is invalid.
 
 ### Step 4: Render report
 
@@ -44,12 +46,6 @@ ocr agent report \
   --format markdown
 ```
 
-### Step 5: Filter and fix
+### Step 5: Fix adopted issues
 
-For each comment, assess validity and quality:
-
-- **High**: Obvious bugs, security issues, clear mistakes, or well-founded suggestions with precise fix proposals
-- **Medium**: Reasonable concerns but context-dependent, style/performance suggestions, or fixes that require manual implementation
-- **Low**: Likely false positives, lacking sufficient context, nitpicks, or meaningless suggestions
-
-Silently discard low-confidence comments. Automatically fix issues worth adopting.
+Automatically fix issues worth adopting when the user requested fixes.

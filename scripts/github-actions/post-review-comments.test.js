@@ -170,12 +170,15 @@ async function testErrorCommentUsesSafeFence(workflowPath) {
 }
 
 function testSummaryTagIdempotencyMatcher() {
-  const tag = "<!-- ocr-summary-run:42-1 -->";
-  const matcher = (comments, id) =>
+  const tag = "<!-- ocr-summary-run:42-1:deadbeef -->";
+  const matcher = (comments, id, requireActionsBot = false) =>
     comments.some((c) => {
+      if (requireActionsBot && !(c.user && c.user.type === "Bot" && String(c.user.login || "").endsWith("[bot]"))) {
+        return false;
+      }
       const body = c.body || "";
       if (id.startsWith("<!--")) {
-        return body.includes(id);
+        return body.startsWith(id);
       }
       const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const tagRe = new RegExp("<!--\\s*" + escaped + "\\s*-->");
@@ -183,9 +186,22 @@ function testSummaryTagIdempotencyMatcher() {
     });
 
   assert.strictEqual(
-    matcher([{ body: `${tag}\nsummary` }], tag),
+    matcher(
+      [{ user: { type: "Bot", login: "github-actions[bot]" }, body: `${tag}\nsummary` }],
+      tag,
+      true
+    ),
     true,
-    "full HTML summary tag should match posted body"
+    "bot-authored summary tag at body start should match"
+  );
+  assert.strictEqual(
+    matcher(
+      [{ user: { type: "User", login: "fork-user" }, body: `${tag}\nsummary` }],
+      tag,
+      true
+    ),
+    false,
+    "fork user comment must not suppress summary posting"
   );
 }
 

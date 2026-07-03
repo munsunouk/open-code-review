@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	"github.com/open-code-review/open-code-review/internal/gitcmd"
@@ -50,7 +49,7 @@ func runAgentContextForCommand(
 		printAgentContextUsage(writer, command)
 		return nil
 	}
-	bundleContent, err := os.ReadFile(options.bundlePath)
+	bundleContent, err := reviewbundle.ReadProtocolFile(options.bundlePath)
 	if err != nil {
 		return fmt.Errorf("open bundle: %w", err)
 	}

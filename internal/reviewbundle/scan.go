@@ -140,6 +140,9 @@ func PrepareScan(ctx context.Context, options ScanOptions) (*ScanManifest, []byt
 	if err != nil {
 		return nil, nil, fmt.Errorf("marshal scan manifest: %w", err)
 	}
+	if err := validateProtocolDocumentSize(encoded); err != nil {
+		return nil, nil, err
+	}
 	return manifest, encoded, nil
 }
 

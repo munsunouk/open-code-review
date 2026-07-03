@@ -215,3 +215,35 @@ func TestScanContextSearchMatchesDirectoryPattern(t *testing.T) {
 		t.Fatalf("Search(directory pattern in scan bundle) = %+v, %v", searched, err)
 	}
 }
+
+func TestScanContextDiffReturnsEmbeddedContent(t *testing.T) {
+	repository := t.TempDir()
+	content := "package sample\n\nfunc ScanDiffTarget() {}\n"
+	if err := os.WriteFile(filepath.Join(repository, "scan.go"), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bundle := &Bundle{
+		SchemaVersion: BundleSchemaVersion,
+		BundleID:      "sha256:scan",
+		Target:        Target{Mode: TargetScan},
+		Files: []File{{
+			Path:          "scan.go",
+			Reviewable:    true,
+			Content:       content,
+			ContentSHA256: hashFields([]byte(content)),
+		}},
+		Contract: DefaultContract(),
+	}
+	service := NewContextService(repository, bundle, gitcmd.New(2))
+
+	diffResult, err := service.Diff(context.Background(), []string{"scan.go"})
+	if err != nil {
+		t.Fatalf("Diff() error = %v", err)
+	}
+	if strings.Contains(diffResult.Result, "diff --git") {
+		t.Fatalf("Diff(scan bundle) = %q, want embedded content not patch", diffResult.Result)
+	}
+	if !strings.Contains(diffResult.Result, "ScanDiffTarget") {
+		t.Fatalf("Diff(scan bundle) = %q, want file content", diffResult.Result)
+	}
+}

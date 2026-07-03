@@ -141,7 +141,7 @@ func loadAgentInputs(bundlePath, commentsPath string) (*reviewbundle.Bundle, *re
 }
 
 func loadAgentBundleByID(path, bundleID string) (*reviewbundle.Bundle, error) {
-	content, err := os.ReadFile(path)
+	content, err := reviewbundle.ReadProtocolFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read bundle: %w", err)
 	}

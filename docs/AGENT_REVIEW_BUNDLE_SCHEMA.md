@@ -24,6 +24,10 @@
 
 `manifest_id` 覆盖 manifest 规范 JSON，计算时清空 `manifest_id` 与 `root` 后做 SHA-256。`root` 是本地路径，不参与身份哈希。
 
+`comments_sha256` 覆盖 `validate-comments` 读取到的原始 comments JSON 文档字节。`report`
+必须拒绝与 validation 结果中 `comments_sha256` 不一致的 comments 输入，避免使用同一
+`bundle_id` 的未验证 comments 生成报告。
+
 ## Target 语义
 
 - `workspace`：目标是当前 `HEAD` 加 staged、unstaged、untracked 改动；`workspace_state` 必须存在。
@@ -76,6 +80,7 @@ Phase 2 校验器错误码：
 - `stale_bundle`
 - `unknown_path`
 - `path_escape`
+- `non_canonical_path`
 - `excluded_path`
 - `invalid_priority`
 - `invalid_category`

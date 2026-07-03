@@ -237,5 +237,8 @@ func marshalManifest(manifest *ScanManifest) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("marshal review manifest: %w", err)
 	}
+	if err := validateProtocolDocumentSize(encoded); err != nil {
+		return nil, err
+	}
 	return encoded, nil
 }
