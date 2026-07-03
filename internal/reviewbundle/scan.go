@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 
 	"github.com/open-code-review/open-code-review/internal/config/rules"
@@ -27,6 +28,7 @@ type ScanOptions struct {
 	MaxBundleSize    int64
 	BatchStrategy    string
 	BatchSize        int
+	EncodedWriter    io.Writer
 }
 
 // ScanManifest links all deterministic full-file review bundles.
@@ -133,12 +135,19 @@ func PrepareScan(ctx context.Context, options ScanOptions) (*ScanManifest, []byt
 		); err != nil {
 			return nil, nil, err
 		}
+		clearScanItemsContent(batch)
 	}
 	manifestID, err := computeManifestID(manifest)
 	if err != nil {
 		return nil, nil, err
 	}
 	manifest.ManifestID = manifestID
+	if options.EncodedWriter != nil {
+		if err := encodeScanManifest(manifest, options.EncodedWriter); err != nil {
+			return nil, nil, err
+		}
+		return manifest, nil, nil
+	}
 	encoded, err := json.Marshal(manifest)
 	if err != nil {
 		return nil, nil, fmt.Errorf("marshal scan manifest: %w", err)
@@ -147,6 +156,21 @@ func PrepareScan(ctx context.Context, options ScanOptions) (*ScanManifest, []byt
 		return nil, nil, err
 	}
 	return manifest, encoded, nil
+}
+
+func clearScanItemsContent(items []model.ScanItem) {
+	for index := range items {
+		items[index].Content = ""
+	}
+}
+
+func encodeScanManifest(manifest *ScanManifest, writer io.Writer) error {
+	limitWriter := &protocolDocumentWriter{w: writer}
+	encoder := json.NewEncoder(limitWriter)
+	if err := encoder.Encode(manifest); err != nil {
+		return fmt.Errorf("marshal scan manifest: %w", err)
+	}
+	return limitWriter.limitError()
 }
 
 func filterAndBudgetScanItems(

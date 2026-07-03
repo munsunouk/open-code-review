@@ -41,6 +41,28 @@ func TestPrepareScanBuildsDeterministicGroupedManifest(t *testing.T) {
 		string(firstJSON) != string(secondJSON) {
 		t.Fatal("scan manifest is not deterministic")
 	}
+	var streamed strings.Builder
+	streamedManifest, streamedJSON, err := PrepareScan(context.Background(), ScanOptions{
+		RepoDir:       repository,
+		Paths:         options.Paths,
+		Resolver:      options.Resolver,
+		FileFilter:    options.FileFilter,
+		GitRunner:     options.GitRunner,
+		BatchStrategy: options.BatchStrategy,
+		BatchSize:     options.BatchSize,
+		MaxBundleSize: options.MaxBundleSize,
+		EncodedWriter: &streamed,
+	})
+	if err != nil {
+		t.Fatalf("PrepareScan(stream) error = %v", err)
+	}
+	if streamedJSON != nil {
+		t.Fatalf("streamed encoded = %v, want nil", streamedJSON)
+	}
+	if streamedManifest.ManifestID != first.ManifestID ||
+		strings.TrimSpace(streamed.String()) != strings.TrimSpace(string(firstJSON)) {
+		t.Fatal("streamed scan manifest differs from buffered encoding")
+	}
 	if first.Summary.TotalFiles != 4 || first.Summary.ReviewableFiles != 3 ||
 		first.Summary.ExcludedFiles != 1 {
 		t.Fatalf("summary = %+v", first.Summary)
