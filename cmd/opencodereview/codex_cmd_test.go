@@ -612,18 +612,8 @@ func TestCodexValidateCommentsFailsWhenInvalid(t *testing.T) {
 	if err := os.WriteFile(commentsPath, []byte(fmt.Sprintf(`{
   "schema_version": "codex-review-comments/v1",
   "bundle_id": %q,
-  "summary": {"files_reviewed": 2, "issues_found": 1},
-  "comments": [{
-    "path": "main.go",
-    "start_line": 9,
-    "end_line": 9,
-    "priority": "high",
-    "category": "bug",
-    "title": "summary mismatch",
-    "content": "summary mismatch",
-    "recommendation": "fix",
-    "confidence": 1
-  }]
+  "summary": {"files_reviewed": 2, "issues_found": 0},
+  "comments": []
 }`, bundle.BundleID)), 0o600); err != nil {
 		t.Fatalf("write comments: %v", err)
 	}
