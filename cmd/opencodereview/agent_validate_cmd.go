@@ -68,7 +68,7 @@ func runAgentValidateCommentsForCommand(
 		repoDir,
 		gitcmd.New(options.maxGitProcs),
 	)
-	if manifest != nil {
+	if manifest != nil && bundle.Target.Mode == reviewbundle.TargetScan {
 		reviewbundle.ValidateScanManifestFreshness(&result, manifest, bundle.BundleID, repoDir)
 	}
 	encoded, err := json.MarshalIndent(result, "", "  ")

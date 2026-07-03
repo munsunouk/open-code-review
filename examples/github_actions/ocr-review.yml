@@ -350,7 +350,13 @@ jobs:
                   console.log(`Could not list posted review comments (${postedErr.message}). ` +
                               `Skipping inline retry to avoid duplicates.`);
                   toRetry = [];
-                  successCount = reviewComments.length;
+                  failedCount += reviewComments.length;
+                  for (const item of reviewComments) {
+                    failedComments.push({
+                      comment: item.comment,
+                      error: `posting status unknown: ${postedErr.message}`,
+                    });
+                  }
                 }
               } else {
                 console.log('Batch review not found on server. Falling back to per-comment posting...');

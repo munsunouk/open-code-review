@@ -76,7 +76,7 @@ func runAgentContextForCommand(
 	if err != nil {
 		return err
 	}
-	if manifest != nil {
+	if manifest != nil && bundle.Target.Mode == reviewbundle.TargetScan {
 		validation := reviewbundle.ValidationResult{Errors: make([]reviewbundle.ValidationNotice, 0)}
 		reviewbundle.ValidateScanManifestFreshness(&validation, manifest, bundle.BundleID, repoDir)
 		if len(validation.Errors) > 0 {

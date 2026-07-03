@@ -198,6 +198,120 @@ func TestAgentPrepareSplitEmitsLargeDiffManifest(t *testing.T) {
 	}
 }
 
+func TestAgentValidateSplitManifestIgnoresWorkingTreeSiblingChanges(t *testing.T) {
+	repository := initAgentRepository(t)
+	for _, name := range []string{"one.go", "two.go"} {
+		writeAgentFile(
+			t,
+			repository,
+			name,
+			"package sample\n// "+strings.Repeat(name, 120)+"\n",
+		)
+	}
+	runAgentGit(t, repository, "add", ".")
+	runAgentGit(t, repository, "commit", "-m", "add split files")
+
+	manifestPath := filepath.Join(t.TempDir(), "manifest.json")
+	if err := runAgentWithWriter([]string{
+		"prepare",
+		"--repo", repository,
+		"--from", "HEAD~1",
+		"--to", "HEAD",
+		"--split",
+		"--max-bundle-bytes", "3600",
+		"--output", manifestPath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("prepare split manifest: %v", err)
+	}
+	content, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	var manifest reviewbundle.ScanManifest
+	if err := json.Unmarshal(content, &manifest); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	if manifest.BatchStrategy != "diff" || len(manifest.Bundles) < 2 {
+		t.Fatalf("manifest = %+v, want split diff manifest", manifest)
+	}
+
+	stalePath := manifest.Bundles[1].Files[0].Path
+	writeAgentFile(t, repository, stalePath, "package sample\n\nfunc ChangedInWorkingTree() {}\n")
+
+	commentsPath := filepath.Join(t.TempDir(), "comments.json")
+	writeAgentJSON(t, commentsPath, reviewbundle.Comments{
+		SchemaVersion: reviewbundle.CommentsSchemaVersion,
+		BundleID:      manifest.Bundles[0].BundleID,
+		Summary:       reviewbundle.CommentsSummary{FilesReviewed: 0, IssuesFound: 0},
+		Comments:      []reviewbundle.ReviewComment{},
+	})
+	err = runAgentWithWriter([]string{
+		"validate-comments",
+		"--repo", repository,
+		"--bundle", manifestPath,
+		"--comments", commentsPath,
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("validate split manifest with dirty sibling: %v", err)
+	}
+}
+
+func TestAgentContextSplitManifestIgnoresWorkingTreeSiblingChanges(t *testing.T) {
+	repository := initAgentRepository(t)
+	for _, name := range []string{"one.go", "two.go"} {
+		writeAgentFile(
+			t,
+			repository,
+			name,
+			"package sample\n// "+strings.Repeat(name, 120)+"\n",
+		)
+	}
+	runAgentGit(t, repository, "add", ".")
+	runAgentGit(t, repository, "commit", "-m", "add split files")
+
+	manifestPath := filepath.Join(t.TempDir(), "manifest.json")
+	if err := runAgentWithWriter([]string{
+		"prepare",
+		"--repo", repository,
+		"--from", "HEAD~1",
+		"--to", "HEAD",
+		"--split",
+		"--max-bundle-bytes", "3600",
+		"--output", manifestPath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("prepare split manifest: %v", err)
+	}
+	content, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	var manifest reviewbundle.ScanManifest
+	if err := json.Unmarshal(content, &manifest); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	if manifest.BatchStrategy != "diff" || len(manifest.Bundles) < 2 {
+		t.Fatalf("manifest = %+v, want split diff manifest", manifest)
+	}
+
+	stalePath := manifest.Bundles[1].Files[0].Path
+	writeAgentFile(t, repository, stalePath, "package sample\n\nfunc ChangedInWorkingTree() {}\n")
+
+	var output bytes.Buffer
+	err = runAgentWithWriter([]string{
+		"context", "read",
+		"--repo", repository,
+		"--bundle", manifestPath,
+		"--bundle-index", "0",
+		"--path", manifest.Bundles[0].Files[0].Path,
+	}, &output)
+	if err != nil {
+		t.Fatalf("context read split manifest with dirty sibling: %v", err)
+	}
+	if !strings.Contains(output.String(), manifest.Bundles[0].Files[0].Path) {
+		t.Fatalf("context output missing selected file:\n%s", output.String())
+	}
+}
+
 func TestAgentUnknownSubcommand(t *testing.T) {
 	var output bytes.Buffer
 	err := runAgentWithWriter([]string{"unknown"}, &output)

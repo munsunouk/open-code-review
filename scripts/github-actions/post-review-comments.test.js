@@ -64,7 +64,20 @@ function mockGithub(options) {
     rest: {
       pulls: {
         get: async () => ({ data: { head: { sha: "head-sha" } } }),
-        listReviewComments: async () => ({ data: [], headers: {} }),
+        listReviews: async () => ({
+          data: options.existingReview
+            ? [{ id: 12345, body: "<!-- ocr-review-run:1-1 -->\nexisting review" }]
+            : [],
+          headers: {},
+        }),
+        listReviewComments: async () => {
+          if (options.listReviewCommentsError) {
+            const error = new Error(options.listReviewCommentsError);
+            error.status = options.listReviewCommentsStatus || 500;
+            throw error;
+          }
+          return { data: options.reviewComments || [], headers: {} };
+        },
         createReview: async (params) => {
           createReviewCalls.push(params);
           if (createReviewCalls.length === 1 && options.bulkError) {
@@ -102,7 +115,17 @@ async function runPostReviewScript(workflowPath, options) {
     github,
     context,
     crypto,
-    process,
+    process: {
+      env: {
+        ...process.env,
+        OCR_MAX_RETRIES: "0",
+        OCR_SUCCESS_DELAY: "0",
+        OCR_FAILURE_DELAY: "0",
+        OCR_READ_SUCCESS_DELAY: "0",
+        OCR_LOW_REMAINING_SPACING: "0",
+        ...(options.env || {}),
+      },
+    },
     setTimeout,
     clearTimeout,
     Promise,
@@ -169,6 +192,37 @@ async function testErrorCommentUsesSafeFence(workflowPath) {
   assert.match(body, /\n````\nstderr includes a fence/);
 }
 
+async function testUnknownPostedIdsAreSummarized(workflowPath) {
+  const result = {
+    comments: [
+      {
+        path: "src/app.js",
+        content: "Unconfirmed inline content must remain visible in the summary.",
+        existing_code: "oldCall();",
+        suggestion_code: "newCall();",
+        start_line: 10,
+        end_line: 10,
+      },
+    ],
+    warnings: [],
+  };
+
+  const github = await runPostReviewScript(workflowPath, {
+    fs: mockFs(JSON.stringify(result), ""),
+    bulkError: "server accepted review but response was lost",
+    existingReview: true,
+    listReviewCommentsError: "read API unavailable",
+  });
+
+  assert.strictEqual(github.createReviewCalls.length, 1);
+  assert.strictEqual(github.issueComments.length, 1);
+  const body = github.issueComments[0].body;
+  assert.match(body, /Successfully posted: 0 comment\(s\)/);
+  assert.match(body, /Failed to post: 1 comment\(s\)/);
+  assert.match(body, /Unconfirmed inline content must remain visible/);
+  assert.match(body, /posting status unknown/);
+}
+
 function testSummaryTagIdempotencyMatcher() {
   const tag = "<!-- ocr-summary-run:42-1:deadbeef -->";
   const matcher = (comments, id, requireActionsBot = false) =>
@@ -230,6 +284,7 @@ async function main() {
     testSummaryTagIsStable(workflowPath);
     await testFailedInlineCommentsAreSummarized(workflowPath);
     await testErrorCommentUsesSafeFence(workflowPath);
+    await testUnknownPostedIdsAreSummarized(workflowPath);
   }
 }
 
