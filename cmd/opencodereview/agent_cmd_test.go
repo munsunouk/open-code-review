@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -677,6 +678,63 @@ func TestAgentValidateCommentsFailsWhenInvalid(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), `"valid": false`) {
 		t.Fatalf("expected invalid validation JSON:\n%s", output.String())
+	}
+}
+
+func TestAgentValidateWritesOutputWhenSessionRecordingFails(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	repository := initAgentRepository(t)
+	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
+	if err := os.MkdirAll(filepath.Join(home, ".opencodereview"), 0o700); err != nil {
+		t.Fatalf("create opencodereview dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".opencodereview", "sessions"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("block sessions dir: %v", err)
+	}
+	directory := t.TempDir()
+	bundlePath := filepath.Join(directory, "bundle.json")
+	if err := runAgentWithWriter([]string{
+		"prepare", "--repo", repository, "--output", bundlePath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("prepare bundle: %v", err)
+	}
+	bundleFile, err := os.Open(bundlePath)
+	if err != nil {
+		t.Fatalf("open bundle: %v", err)
+	}
+	bundle, loadErr := reviewbundle.LoadBundle(bundleFile)
+	closeErr := bundleFile.Close()
+	if loadErr != nil {
+		t.Fatalf("load bundle: %v", loadErr)
+	}
+	if closeErr != nil {
+		t.Fatalf("close bundle: %v", closeErr)
+	}
+	commentsPath := filepath.Join(directory, "comments.json")
+	writeAgentJSON(t, commentsPath, reviewbundle.Comments{
+		SchemaVersion: reviewbundle.CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       reviewbundle.CommentsSummary{FilesReviewed: 2, IssuesFound: 0},
+		Comments:      []reviewbundle.ReviewComment{},
+	})
+	validationPath := filepath.Join(directory, "validation.json")
+	err = runAgentValidateCommentsForCommand(context.Background(), "agent", []string{
+		"--repo", repository,
+		"--bundle", bundlePath,
+		"--comments", commentsPath,
+		"--output", validationPath,
+		"--session-id", "run-validate",
+	}, &bytes.Buffer{})
+	if _, ok := err.(validationFailedError); !ok {
+		t.Fatalf("error = %T(%v), want validationFailedError", err, err)
+	}
+	encoded, readErr := os.ReadFile(validationPath)
+	if readErr != nil {
+		t.Fatalf("read validation output: %v", readErr)
+	}
+	if !strings.Contains(string(encoded), `"valid": false`) {
+		t.Fatalf("validation output missing valid:false:\n%s", encoded)
 	}
 }
 
