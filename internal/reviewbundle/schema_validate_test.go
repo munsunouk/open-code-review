@@ -34,6 +34,18 @@ func TestValidateCommentsDocumentRejectsInvalidFileLevelRange(t *testing.T) {
 	}
 }
 
+func TestValidateCommentsDocumentAcceptsLineCommentWithoutFileLevelFlag(t *testing.T) {
+	document := []byte(`{
+		"schema_version":"agent-review-comments/v1",
+		"bundle_id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"summary":{"files_reviewed":1,"issues_found":1},
+		"comments":[{"path":"main.go","start_line":1,"end_line":1,"priority":"high","category":"bug","title":"t","content":"c","recommendation":"r","confidence":1}]
+	}`)
+	if err := validateCommentsDocument(document); err != nil {
+		t.Fatalf("validateCommentsDocument() error = %v, want line comment accepted", err)
+	}
+}
+
 func TestPreparedBundlePassesEmbeddedSchema(t *testing.T) {
 	bundle := validationBundle()
 	bundle.BundleID = ""

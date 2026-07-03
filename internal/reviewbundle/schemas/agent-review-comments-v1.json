@@ -41,7 +41,10 @@
       },
       "allOf": [
         {
-          "if": {"properties": {"file_level_comment": {"const": true}}},
+          "if": {
+            "required": ["file_level_comment"],
+            "properties": {"file_level_comment": {"const": true}}
+          },
           "then": {
             "properties": {
               "start_line": {"const": 0},
