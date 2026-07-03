@@ -489,6 +489,9 @@ func TestCodeSearchProvider_Execute_PerlRegexp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if strings.Contains(got, "cannot use Perl-compatible regexes") {
+		t.Skipf("git was built without Perl-compatible regexp support: %s", got)
+	}
 	if !strings.Contains(got, "hello.go") {
 		t.Errorf("expected hello.go in perl regexp result, got: %s", got)
 	}

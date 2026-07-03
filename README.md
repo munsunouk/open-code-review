@@ -322,8 +322,8 @@ Install and enable `Open Code Review`, then start a new Codex thread and invoke 
 ```
 
 This registers a host-agent review skill. OCR supplies deterministic review
-evidence and target-aware context; Codex performs all planning, reasoning,
-prioritization, reporting, and explicitly requested fixes.
+evidence and target-aware context; the active host agent performs all planning,
+reasoning, prioritization, reporting, and explicitly requested fixes.
 
 The host-agnostic command surface is `ocr agent ...`; Codex is the first adapter
 using that shared deterministic layer:

@@ -11,9 +11,9 @@ The legacy `ocr codex` command namespace was removed in favor of the host-agnost
 | `ocr codex report` | `ocr agent report` |
 | `ocr codex context ...` | `ocr agent context ...` |
 
-## Codex-owned vs native OCR
+## Host-agent vs native OCR
 
-- **Codex-owned / host-agent path:** `ocr agent ...` prepares deterministic bundles and validates externally authored comments. No OCR LLM provider or API key is required.
+- **Host-agent path:** `ocr agent ...` prepares deterministic bundles and validates externally authored comments. No OCR LLM provider or API key is required.
 - **Native OCR path:** `ocr review` and `ocr scan` still invoke OCR's configured external LLM when you explicitly want that workflow.
 
 ## Automation requirements
@@ -24,4 +24,4 @@ The legacy `ocr codex` command namespace was removed in favor of the host-agnost
 
 ## Viewer sessions
 
-Agent sessions are recorded under `~/.opencodereview/sessions/` with viewer-compatible JSONL. Legacy `ocr codex`-owned session records are no longer rendered by the viewer.
+Agent sessions are recorded under `~/.opencodereview/sessions/` with viewer-compatible JSONL. Legacy `ocr codex` session records are no longer rendered by the viewer.

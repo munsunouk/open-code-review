@@ -321,7 +321,7 @@ codex
 @Open Code Review review and fix high-confidence issues
 ```
 
-이 plugin은 Codex-owned review skill을 등록합니다. OCR은 결정적 review evidence와 target-aware context를 제공하고, Codex가 계획·판단·보고·수정을 수행합니다.
+이 plugin은 host-agent review skill을 등록합니다. OCR은 결정적 review evidence와 target-aware context를 제공하고, 활성 host agent가 계획·판단·보고·수정을 수행합니다.
 
 호스트 공통 명령 표면은 `ocr agent ...`입니다.
 
@@ -331,7 +331,7 @@ ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.j
 ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-Codex-owned 경로는 OCR LLM backend를 초기화하지 않으며 OCR provider나 API key가 필요하지 않습니다. 명시적으로 OCR의 외부 LLM workflow를 원할 때만 `ocr review`와 `ocr scan`을 사용합니다.
+host-agent 경로는 OCR LLM backend를 초기화하지 않으며 OCR provider나 API key가 필요하지 않습니다. 명시적으로 OCR의 외부 LLM workflow를 원할 때만 `ocr review`와 `ocr scan`을 사용합니다.
 
 한국어 가이드: [`plugins/open-code-review/CODEX.ko-KR.md`](plugins/open-code-review/CODEX.ko-KR.md) · 마이그레이션: [`docs/CODEX_MIGRATION.md`](docs/CODEX_MIGRATION.md)
 

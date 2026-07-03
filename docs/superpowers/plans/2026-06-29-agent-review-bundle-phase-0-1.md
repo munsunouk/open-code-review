@@ -65,8 +65,8 @@ Expected: PASS.
 - Create: `internal/reviewbundle/bundle.go`
 - Create: `internal/reviewbundle/schema.go`
 - Create: `internal/reviewbundle/schema_test.go`
-- Create: `internal/reviewbundle/schemas/codex-review-bundle-v1.json`
-- Create: `internal/reviewbundle/schemas/codex-review-comments-v1.json`
+- Create: `internal/reviewbundle/schemas/agent-review-bundle-v1.json`
+- Create: `internal/reviewbundle/schemas/agent-review-comments-v1.json`
 - Create: `docs/CODEX_REVIEW_BUNDLE_SCHEMA.md`
 
 - [x] **Step 1: Write failing protocol tests**
@@ -74,8 +74,8 @@ Expected: PASS.
 Tests assert:
 
 ```go
-BundleSchemaVersion == "codex-review-bundle/v1"
-CommentsSchemaVersion == "codex-review-comments/v1"
+BundleSchemaVersion == "agent-review-bundle/v1"
+CommentsSchemaVersion == "agent-review-comments/v1"
 ```
 
 They must decode both embedded schemas as JSON, assert their `$id`, require `additionalProperties: false` at protocol object boundaries, and marshal a complete bundle fixture using the documented snake_case names.
@@ -204,8 +204,8 @@ Expected: PASS.
 ### Task 4: Expose `ocr agent prepare` without loading an OCR LLM runtime
 
 **Files:**
-- Create: `cmd/opencodereview/codex_cmd.go`
-- Create: `cmd/opencodereview/codex_cmd_test.go`
+- Create: `cmd/opencodereview/agent_cmd.go`
+- Create: `cmd/opencodereview/agent_cmd_test.go`
 - Modify: `cmd/opencodereview/main.go`
 
 - [x] **Step 1: Write failing CLI tests**
@@ -254,7 +254,7 @@ Expected: PASS.
 Run:
 
 ```bash
-rtk gofmt -w cmd/opencodereview/codex_cmd.go cmd/opencodereview/codex_cmd_test.go internal/reviewfilter internal/reviewbundle
+rtk gofmt -w cmd/opencodereview/agent_cmd.go cmd/opencodereview/agent_cmd_test.go internal/reviewfilter internal/reviewbundle
 rtk git diff --check
 ```
 

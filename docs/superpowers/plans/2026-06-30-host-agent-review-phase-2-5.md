@@ -1,4 +1,4 @@
-# Codex-Owned Review Phase 2-5 Implementation Plan
+# Host-Agent Review Phase 2-5 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -16,8 +16,8 @@
 - Create: `internal/reviewbundle/load.go`
 - Create: `internal/reviewbundle/validate.go`
 - Create: `internal/reviewbundle/validate_test.go`
-- Modify: `cmd/opencodereview/codex_cmd.go`
-- Modify: `cmd/opencodereview/codex_cmd_test.go`
+- Modify: `cmd/opencodereview/agent_cmd.go`
+- Modify: `cmd/opencodereview/agent_cmd_test.go`
 
 - [x] **Step 1: Write failing validation tests**
 
@@ -49,8 +49,8 @@ Add `ocr agent validate-comments --bundle FILE --comments FILE [--repo PATH] [--
 **Files:**
 - Create: `internal/reviewbundle/report.go`
 - Create: `internal/reviewbundle/report_test.go`
-- Modify: `cmd/opencodereview/codex_cmd.go`
-- Modify: `cmd/opencodereview/codex_cmd_test.go`
+- Modify: `cmd/opencodereview/agent_cmd.go`
+- Modify: `cmd/opencodereview/agent_cmd_test.go`
 
 - [x] **Step 1: Write failing report tests**
 
@@ -81,8 +81,8 @@ Run `rtk go test ./internal/reviewbundle ./cmd/opencodereview -run 'TestCodex|Te
 **Files:**
 - Create: `internal/reviewbundle/context.go`
 - Create: `internal/reviewbundle/context_test.go`
-- Modify: `cmd/opencodereview/codex_cmd.go`
-- Modify: `cmd/opencodereview/codex_cmd_test.go`
+- Modify: `cmd/opencodereview/agent_cmd.go`
+- Modify: `cmd/opencodereview/agent_cmd_test.go`
 
 - [x] **Step 1: Write failing context tests**
 
@@ -108,9 +108,9 @@ Add `ocr agent context read|find|diff|search --bundle FILE` with operation-speci
 - Create: `internal/reviewbundle/scan_test.go`
 - Modify: `internal/scan/batch.go`
 - Modify: `internal/scan/estimate.go`
-- Modify: `cmd/opencodereview/codex_cmd.go`
-- Modify: `cmd/opencodereview/codex_cmd_test.go`
-- Modify: `internal/reviewbundle/schemas/codex-review-bundle-v1.json`
+- Modify: `cmd/opencodereview/agent_cmd.go`
+- Modify: `cmd/opencodereview/agent_cmd_test.go`
+- Modify: `internal/reviewbundle/schemas/agent-review-bundle-v1.json`
 
 - [x] **Step 1: Write failing scan tests**
 
@@ -145,12 +145,12 @@ Extend `ocr agent prepare` with `--scan`, repeatable/comma-separated `--path`, `
 ### Task 5: Persist agent runs and make viewer records compatible
 
 **Files:**
-- Create: `internal/session/codex.go`
-- Create: `internal/session/codex_test.go`
+- Create: `internal/session/agent.go`
+- Create: `internal/session/agent_test.go`
 - Modify: `internal/viewer/store.go`
 - Modify: `internal/viewer/store_test.go`
-- Modify: `cmd/opencodereview/codex_cmd.go`
-- Modify: `cmd/opencodereview/codex_cmd_test.go`
+- Modify: `cmd/opencodereview/agent_cmd.go`
+- Modify: `cmd/opencodereview/agent_cmd_test.go`
 
 - [x] **Step 1: Write failing session/viewer tests**
 

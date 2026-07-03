@@ -1,4 +1,4 @@
-# Codex-Owned OCR Parity Matrix
+# Host-Agent OCR Parity Matrix
 
 状态：Phase 2–5 实现基线（2026-06-30）。
 
@@ -6,7 +6,7 @@
 模型质量仍需在固定 ground-truth corpus 上持续比较。
 中性命令入口是 `ocr agent ...`；Codex 插件只是该确定性数据面的第一个适配层。
 
-| 原生能力 | Codex-owned 实现 | 自动化证据 |
+| 原生能力 | host-agent 实现 | 自动化证据 |
 |---|---|---|
 | workspace staged/unstaged/untracked | `ocr agent prepare` + native diff provider | `reviewbundle/prepare_test.go` |
 | range merge-base / commit | immutable target resolution | `reviewbundle/target_test.go`, `prepare_test.go` |
@@ -23,12 +23,12 @@
 | Git and non-Git scan | native scan provider | `reviewbundle/scan_test.go` |
 | scan preview/filter/size/budget | manifest summaries and explicit skipped scope | `reviewbundle/scan_test.go`, CLI tests |
 | none/language/directory batching | exported native grouping implementation | `scan/batch_test.go`, `reviewbundle/scan_test.go` |
-| scan dedup/project summary | Codex second pass; Skill requires traceability and partial-scope disclosure | Skill static test |
-| session/history | opt-in `--session-id`, correlated JSONL | `session/codex_test.go` |
-| viewer | `agent` records and unavailable-token semantics | `viewer/codex_test.go` |
+| scan dedup/project summary | host-agent second pass; Skill requires traceability and partial-scope disclosure | Skill static test |
+| session/history | opt-in `--session-id`, correlated JSONL | `session/agent_test.go` |
+| viewer | `agent` records and unavailable-token semantics | `viewer/agent_test.go` |
 | telemetry/trace facts | files, findings, warnings, partial, duration, context calls, validation | session tests |
 | native OCR compatibility | `ocr review`/`ocr scan` code paths retained | full `go test ./...` |
-| no OCR LLM in Codex path | agent commands do not load runtime/client/provider | source boundary scan |
+| no OCR LLM in host-agent path | agent commands do not load runtime/client/provider | source boundary scan |
 | no source writes | only explicit bundle/report/session output writes | source boundary scan |
 
 ## Remaining release-quality benchmark

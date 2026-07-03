@@ -41,7 +41,7 @@ Codex 主导路径
 | 查找相关代码 | 仅提供原始工具能力 | ✅ |
 | 决定是否修复 | ❌ | ✅ |
 | 修改工作区文件 | ❌ | ✅，且仅在用户授权时 |
-| 调用评审 LLM | 传统路径保留 | Codex 路径禁止 |
+| 调用评审 LLM | 传统路径保留 | host-agent 路径禁止 |
 
 这里的“确定性”表示：**命令执行不创建 OCR LLM client、不读取 LLM 凭据、不发起 LLM 请求**。它不要求输出字节级完全一致，例如工作区状态、规则文件和 Git refs 变化后，bundle 可以变化。
 
@@ -185,7 +185,7 @@ Codex 主导模式必须满足：
 推荐：
 
 ```text
-cmd/opencodereview/codex_cmd.go
+cmd/opencodereview/agent_cmd.go
 internal/reviewbundle/
   bundle.go
   prepare.go
@@ -212,7 +212,7 @@ ocr agent prepare \
   --output /tmp/ocr-review-bundle.json
 ```
 
-不默认写入 `.opencodereview/codex/`，避免污染工作区、泄露 diff 或制造新的未跟踪文件。
+不默认写入 `.opencodereview/agent/`，避免污染工作区、泄露 diff 或制造新的未跟踪文件。
 
 ### 4.4 原生能力零损失
 
@@ -226,9 +226,9 @@ Git/rules/tools ─┤
 
 两条路径共享确定性底座，但拥有不同的智能控制面。任何公共模块抽取都必须通过现有 `review`、`scan`、`rules`、viewer/session 和输出格式回归测试。
 
-### 4.5 Codex 路径的原生能力对等矩阵
+### 4.5 host-agent 路径的原生能力对等矩阵
 
-| 原生 OCR 能力 | Codex 主导实现 | 强制级别 |
+| 原生 OCR 能力 | host-agent 主导实现 | 强制级别 |
 |---|---|---:|
 | workspace staged/unstaged/untracked | `ocr agent prepare` 同源 diff provider | 必须 |
 | range merge-base 比较 | `--from/--to`，记录 resolved merge base | 必须 |
@@ -258,7 +258,7 @@ Git/rules/tools ─┤
 | scan project summary | Codex生成 | 必须 |
 | session/history/viewer | 生成兼容或可迁移的运行记录 | 必须 |
 | telemetry/trace | 保留文件数、耗时、警告、工具调用等可观测性 | 必须 |
-| OCR provider/model/token 指标 | 传统路径原样保留；Codex 路径只记录 Codex 可提供的数据，不伪造 | 不适用 |
+| OCR provider/model/token 指标 | 传统路径原样保留；host-agent 路径只记录 host 可提供的数据，不伪造 | 不适用 |
 
 如果某项使用 Codex 自身工具替代 OCR 工具，必须证明目标 ref 语义、路径安全、行范围和返回内容等价；不能仅以“Codex 也能读文件”为由跳过验收。
 
@@ -290,12 +290,12 @@ ocr agent prepare \
 # 校验 Codex 生成的评论
 ocr agent validate-comments \
   --bundle /tmp/ocr-review-bundle.json \
-  --comments /tmp/codex-review-comments.json
+  --comments /tmp/agent-review-comments.json
 
 # 格式化已通过校验的评论
 ocr agent report \
   --bundle /tmp/ocr-review-bundle.json \
-  --comments /tmp/codex-review-comments.json \
+  --comments /tmp/agent-review-comments.json \
   --format markdown
 ```
 
@@ -377,11 +377,11 @@ ocr agent prepare --scan --path internal/agent --format json
 - 明确所有字段的来源；
 - 不夹带给 Codex 的动态执行指令。
 
-### 6.2 推荐的 `codex-review-bundle/v1`
+### 6.2 推荐的 `agent-review-bundle/v1`
 
 ```json
 {
-  "schema_version": "codex-review-bundle/v1",
+  "schema_version": "agent-review-bundle/v1",
   "bundle_id": "sha256:...",
   "target": {
     "mode": "workspace",
@@ -430,7 +430,7 @@ ocr agent prepare --scan --path internal/agent --format json
     }
   ],
   "contract": {
-    "comment_schema": "codex-review-comments/v1",
+    "comment_schema": "agent-review-comments/v1",
     "line_numbers": "one_based_new_file",
     "allowed_priorities": ["high", "medium", "low"],
     "allowed_categories": [
@@ -497,13 +497,13 @@ manifest 必须保存全局 `bundle_id`、分片顺序和每片文件列表。
 
 ---
 
-## 7. Codex 评论协议
+## 7. Agent 评论协议
 
-### 7.1 推荐的 `codex-review-comments/v1`
+### 7.1 推荐的 `agent-review-comments/v1`
 
 ```json
 {
-  "schema_version": "codex-review-comments/v1",
+  "schema_version": "agent-review-comments/v1",
   "bundle_id": "sha256:...",
   "summary": {
     "files_reviewed": 2,
@@ -620,7 +620,7 @@ plugins/open-code-review/skills/open-code-review/SKILL.md
 skills/open-code-review/SKILL.md
 ```
 
-不新增另一个同样匹配 “review current changes” 的 `open-code-review-codex` Skill。两个宽泛触发的 Skill 会造成选择歧义。
+不新增另一个同样匹配 “review current changes” 的 `open-code-review-host-agent` Skill。两个宽泛触发的 Skill 会造成选择歧义。
 
 可以在开发阶段从测试路径显式加载新 Skill，但在能力对等矩阵全部通过前，不替换已发布插件的默认 Skill。最终切换必须是一次受控迁移，而不是先切换再逐步补回原生能力。
 
@@ -636,10 +636,10 @@ skills/open-code-review/SKILL.md
 
 ```json
 {
-  "description": "Codex-owned code reviews using OCR deterministic context tooling.",
+  "description": "host-agent code reviews using OCR deterministic context tooling.",
   "interface": {
     "displayName": "Open Code Review",
-    "shortDescription": "Codex-owned reviews with OCR context tooling.",
+    "shortDescription": "host-agent reviews with OCR context tooling.",
     "capabilities": ["Read"]
   }
 }
@@ -654,7 +654,7 @@ skills/open-code-review/SKILL.md
 name: open-code-review
 description: >
   Reviews Git workspace changes, commits, or branch comparisons using OCR only
-  for deterministic diff, rule, and line metadata collection. Codex performs
+  for deterministic diff, rule, and line metadata collection. The host agent performs
   all review reasoning, prioritization, reporting, and authorized edits.
 ---
 
@@ -662,7 +662,7 @@ description: >
 
 ## Invariant
 
-Codex owns the review.
+The host agent owns the review.
 
 - Use `ocr agent prepare`; do not use `ocr review` or `ocr scan` by default.
 - Do not run `ocr llm test`.
@@ -680,7 +680,7 @@ Codex owns the review.
 5. Review every reviewable file; use OCR context services when target-aware context is needed.
 6. Perform a second-pass reflection/filter over candidate findings.
 7. For scan, deduplicate findings and produce the project summary.
-8. Produce findings in `codex-review-comments/v1`.
+8. Produce findings in `agent-review-comments/v1`.
 9. Run `ocr agent validate-comments`; resolve or report every error.
 10. If the user explicitly requested fixes, Codex edits high-confidence issues.
 11. Run targeted formatting, static checks, and tests after edits.
@@ -750,8 +750,8 @@ open-code-review-external-llm
 
 交付：
 
-- `codex-review-bundle/v1` JSON Schema
-- `codex-review-comments/v1` JSON Schema
+- `agent-review-bundle/v1` JSON Schema
+- `agent-review-comments/v1` JSON Schema
 - target/bundle 哈希规则
 - stale bundle 语义
 - 错误码列表
@@ -769,7 +769,7 @@ open-code-review-external-llm
 交付：
 
 ```text
-cmd/opencodereview/codex_cmd.go
+cmd/opencodereview/agent_cmd.go
 internal/reviewbundle/bundle.go
 internal/reviewbundle/prepare.go
 internal/reviewbundle/target.go
@@ -888,7 +888,7 @@ viewer 可区分 `agent` 与 `ocr-llm`，未知 token 指标记录为
 
 - 不伪造 Codex 未提供的 token 数据；
 - 传统 OCR session/history/viewer 完全保持兼容；
-- Codex 路径可以从最终报告追溯到 bundle 和验证结果；
+- host-agent 路径可以从最终报告追溯到 bundle 和验证结果；
 - 用户可以识别一次运行是 `ocr-llm` 还是 `agent`。
 
 ### Phase 5：100% 对等验收与 Skill 切换
@@ -911,7 +911,7 @@ plugins/open-code-review/CODEX.ko-KR.md
 
 - 第 4.5 节所有“必须”项通过自动化或端到端验收；
 - 传统 OCR 完整回归通过；
-- Codex 路径在固定评审基准集上达到或超过原生 OCR 基线；
+- host-agent 路径在固定评审基准集上达到或超过原生 OCR 基线；
 - workspace、range、commit、scan 各至少一个真实大型项目验证；
 - 失败、超时、取消、stale 和部分成功都有稳定输出；
 - 文档没有要求配置 OCR LLM provider。
@@ -991,14 +991,14 @@ Codex 新路径不能改变现有传统 OCR JSON 格式，也不能修改 `model
 - 项目规则覆盖、规则合并和排除规则；
 - 非 Git scan、预算中断和 partial failure。
 
-每个样本保存人工确认的 ground truth。传统 OCR 和 Codex 路径在相同 target、规则、背景和允许上下文下多轮运行，按语义而不是逐字比较。
+每个样本保存人工确认的 ground truth。传统 OCR 和 host-agent 路径在相同 target、规则、背景和允许上下文下多轮运行，按语义而不是逐字比较。
 
 默认 Skill 切换必须同时满足：
 
 1. 功能矩阵覆盖率 100%，没有未实现的“必须”项。
 2. ground-truth 严重问题召回率不低于传统 OCR 基线。
 3. 经人工确认的误报率不高于传统 OCR 基线。
-4. 原生 OCR 已稳定发现的高优先级问题，Codex 路径不能系统性漏报。
+4. 原生 OCR 已稳定发现的高优先级问题，host-agent 路径不能系统性漏报。
 5. 文件覆盖率、规则覆盖率和成功定位率不低于传统 OCR。
 6. scan dedup 不得丢失语义不同的问题。
 7. timeout、budget、partial failure 不得被报告为完整成功。
@@ -1081,7 +1081,7 @@ Codex → OCR deterministic tooling
 
 ### 14.4 shell 版长期 MVP
 
-不采用 `codex-prepare.sh` 作为正式实现。它会重复 Git 解析逻辑、削弱 Windows 支持，并容易在 JSON 转义、rename、binary、untracked、symlink 和路径安全方面出错。
+不采用 `agent-prepare.sh` 作为正式实现。它会重复 Git 解析逻辑、削弱 Windows 支持，并容易在 JSON 转义、rename、binary、untracked、symlink 和路径安全方面出错。
 
 现有 Go pipeline 已足够成熟，直接抽取 Go 服务成本更低。
 
@@ -1100,8 +1100,8 @@ docs/CODEX_SKILL_FEASIBILITY.md
 docs/CODEX_REVIEW_BUNDLE_SCHEMA.md
 
 cmd/opencodereview/main.go
-cmd/opencodereview/codex_cmd.go
-cmd/opencodereview/codex_cmd_test.go
+cmd/opencodereview/agent_cmd.go
+cmd/opencodereview/agent_cmd_test.go
 
 internal/reviewbundle/bundle.go
 internal/reviewbundle/prepare.go
@@ -1120,7 +1120,7 @@ internal/reviewbundle/report_test.go
 internal/reviewbundle/session.go
 internal/reviewbundle/session_test.go
 
-testdata/codex-parity/
+testdata/agent-parity/
 
 skills/open-code-review/SKILL.md
 plugins/open-code-review/skills/open-code-review/SKILL.md
@@ -1133,8 +1133,8 @@ plugins/open-code-review/CODEX.ko-KR.md
 JSON Schema 可以放在：
 
 ```text
-internal/reviewbundle/schemas/codex-review-bundle-v1.json
-internal/reviewbundle/schemas/codex-review-comments-v1.json
+internal/reviewbundle/schemas/agent-review-bundle-v1.json
+internal/reviewbundle/schemas/agent-review-comments-v1.json
 ```
 
 并使用 `go:embed` 提供给 CLI 校验。

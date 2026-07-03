@@ -321,7 +321,7 @@ codex
 @Open Code Review review and fix high-confidence issues
 ```
 
-Это зарегистрирует Codex-owned review skill. OCR предоставляет детерминированные review evidence и target-aware context; Codex выполняет планирование, рассуждение, отчёт и исправления.
+Это зарегистрирует host-agent review skill. OCR предоставляет детерминированные review evidence и target-aware context; активный host agent выполняет планирование, рассуждение, отчёт и исправления.
 
 Общая host-команда: `ocr agent ...`.
 
@@ -331,7 +331,7 @@ ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.j
 ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-Путь Codex-owned не инициализирует LLM backend OCR и не требует provider или API key. `ocr review` и `ocr scan` используйте только при явном запросе внешнего LLM workflow.
+Путь host-agent не инициализирует LLM backend OCR и не требует provider или API key. `ocr review` и `ocr scan` используйте только при явном запросе внешнего LLM workflow.
 
 Руководство на корейском: [`plugins/open-code-review/CODEX.ko-KR.md`](plugins/open-code-review/CODEX.ko-KR.md) · миграция: [`docs/CODEX_MIGRATION.md`](docs/CODEX_MIGRATION.md)
 

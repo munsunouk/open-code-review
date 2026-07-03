@@ -321,7 +321,7 @@ codex
 @Open Code Review review and fix high-confidence issues
 ```
 
-これにより、Codex-owned review skillが登録されます。OCRは決定論的なreview evidenceとtarget-aware contextを提供し、Codexが計画・判断・報告・修正を行います。
+これにより、host-agent review skillが登録されます。OCRは決定論的なreview evidenceとtarget-aware contextを提供し、アクティブなhost agentが計画・判断・報告・修正を行います。
 
 ホスト共通のコマンド面は `ocr agent ...` です。
 
@@ -331,7 +331,7 @@ ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.j
 ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-Codex-ownedパスはOCR LLM backendを初期化せず、OCR providerやAPI keyは不要です。明示的にOCRの外部LLM workflowを使う場合のみ `ocr review` と `ocr scan` を使用します。
+host-agentパスはOCR LLM backendを初期化せず、OCR providerやAPI keyは不要です。明示的にOCRの外部LLM workflowを使う場合のみ `ocr review` と `ocr scan` を使用します。
 
 韓国語ガイド：[`plugins/open-code-review/CODEX.ko-KR.md`](plugins/open-code-review/CODEX.ko-KR.md) · 移行：[`docs/CODEX_MIGRATION.md`](docs/CODEX_MIGRATION.md)
 
