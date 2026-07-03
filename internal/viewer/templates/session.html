@@ -102,12 +102,18 @@
 {{if .Session.CodexEvents}}
 <h3>Agent workflow events</h3>
 <table class="token-table">
-    <thead><tr><th>Event</th><th>Bundle</th><th>Duration</th><th>Error</th></tr></thead>
+    <thead><tr><th>Event</th><th>Bundle</th><th>Files</th><th>Findings</th><th>Warnings</th><th>Context</th><th>Partial</th><th>Valid</th><th>Duration</th><th>Error</th></tr></thead>
     <tbody>
     {{range .Session.CodexEvents}}
         <tr>
             <td>{{.Event}}</td>
             <td>{{if .BundleID}}<code>{{.BundleID}}</code>{{else}}-{{end}}</td>
+            <td>{{if .Files}}{{.Files}}{{else}}-{{end}}</td>
+            <td>{{if .Findings}}{{.Findings}}{{else}}-{{end}}</td>
+            <td>{{if .Warnings}}{{.Warnings}}{{else}}-{{end}}</td>
+            <td>{{if .ContextCalls}}{{.ContextCalls}}{{else}}-{{end}}</td>
+            <td>{{if .Partial}}yes{{else}}-{{end}}</td>
+            <td>{{if .ValidationValid}}{{if .ValidationValid}}yes{{else}}no{{end}}{{else}}-{{end}}</td>
             <td>{{if .DurationMS}}{{.DurationMS}} ms{{else}}-{{end}}</td>
             <td>{{if .Error}}{{.Error}}{{else}}-{{end}}</td>
         </tr>

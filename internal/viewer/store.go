@@ -221,10 +221,16 @@ type ViewSession struct {
 
 // CodexEvent is a read-only viewer representation of one host-agent workflow event.
 type CodexEvent struct {
-	Event      string
-	BundleID   string
-	DurationMS int64
-	Error      string
+	Event           string
+	BundleID        string
+	DurationMS      int64
+	Error           string
+	Files           int
+	Findings        int
+	Warnings        int
+	ContextCalls    int
+	Partial         bool
+	ValidationValid *bool
 }
 
 // TokenUsageSummary aggregates token counts across the session.
@@ -352,9 +358,29 @@ func LoadSession(root, encodedRepo, sessionID string) (*ViewSession, error) {
 			if value, ok := rec["duration_ms"].(float64); ok {
 				duration = int64(value)
 			}
-			vs.CodexEvents = append(vs.CodexEvents, CodexEvent{
+			agentEvent := CodexEvent{
 				Event: event, BundleID: bundleID, DurationMS: duration, Error: errorMessage,
-			})
+			}
+			if value, ok := rec["files"].(float64); ok {
+				agentEvent.Files = int(value)
+			}
+			if value, ok := rec["findings"].(float64); ok {
+				agentEvent.Findings = int(value)
+			}
+			if value, ok := rec["warnings"].(float64); ok {
+				agentEvent.Warnings = int(value)
+			}
+			if value, ok := rec["context_calls"].(float64); ok {
+				agentEvent.ContextCalls = int(value)
+			}
+			if value, ok := rec["partial"].(bool); ok {
+				agentEvent.Partial = value
+			}
+			if value, ok := rec["validation_valid"].(bool); ok {
+				valid := value
+				agentEvent.ValidationValid = &valid
+			}
+			vs.CodexEvents = append(vs.CodexEvents, agentEvent)
 
 		case "llm_request":
 			fp, _ := rec["filePath"].(string)
