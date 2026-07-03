@@ -177,8 +177,8 @@ Run `rtk go test ./internal/session ./internal/viewer ./cmd/opencodereview -run 
 - Modify: `plugins/open-code-review/.codex-plugin/plugin.json`
 - Modify: `README.md`
 - Modify: `plugins/open-code-review/CODEX.ko-KR.md`
-- Modify: `docs/CODEX_SKILL_FEASIBILITY.md`
-- Create: `docs/CODEX_PARITY_MATRIX.md`
+- Modify: `docs/AGENT_SKILL_FEASIBILITY.md`
+- Create: `docs/AGENT_PARITY_MATRIX.md`
 
 - [x] **Step 1: Write static integration tests**
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/open-code-review/open-code-review/internal/llm"
 	"github.com/open-code-review/open-code-review/internal/model"
 )
 
@@ -52,6 +53,27 @@ func TestFilterOversizedInputsReportsSkippedItems(t *testing.T) {
 	keptDiffs, warnings = filterOversizedDiffs([]model.Diff{{NewPath: "small.go", Diff: "small"}}, 0)
 	if len(keptDiffs) != 1 || len(warnings) != 0 {
 		t.Fatalf("default token limit kept=%d warnings=%+v, want keep", len(keptDiffs), warnings)
+	}
+}
+
+func TestEstimateAgentTokenHelpers(t *testing.T) {
+	diffTokens := estimateDiffManifestTokens([]Bundle{{
+		Files: []File{
+			{Path: "reviewed.go", Reviewable: true, Patch: "package main\n"},
+			{Path: "skipped.go", Reviewable: false, Patch: strings.Repeat("skip ", 100)},
+		},
+	}})
+	if diffTokens != int64(llm.CountTokens("package main\n")) {
+		t.Fatalf("estimateDiffManifestTokens() = %d, want only reviewable patch counted", diffTokens)
+	}
+
+	contentTokens := estimateAgentContentTokens([]model.ScanItem{
+		{Path: "a.go", Content: "package a\n"},
+		{Path: "b.go", Content: "package b\n"},
+	})
+	wantContentTokens := int64(llm.CountTokens("package a\n") + llm.CountTokens("package b\n"))
+	if contentTokens != wantContentTokens {
+		t.Fatalf("estimateAgentContentTokens() = %d, want sum of scan content tokens", contentTokens)
 	}
 }
 

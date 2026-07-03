@@ -1,12 +1,12 @@
-# 将 Open Code Review 改造成 Codex 主导 Skill 的可行性与实施设计
+# 将 Open Code Review 改造成 host-agent 主导 Skill 的可行性与实施设计
 
 > 项目：`alibaba/open-code-review` 的定制 fork
 > 更新日期：2026-06-29
-> 目标：让 Codex 完整掌握代码评审的范围选择、推理、判断、修改和最终输出；OCR 仅提供不调用外部 LLM 的确定性工程能力。
+> 目标：让 host agent 完整掌握代码评审的范围选择、推理、判断、修改和最终输出；OCR 仅提供不调用外部 LLM 的确定性工程能力。
 
-> 实施状态（2026-06-30）：Phase 0–5 的工程基线已落地；默认 Codex Skill
+> 实施状态（2026-06-30）：Phase 0–5 的工程基线已落地；默认 host agent Skill
 > 已切换到 `ocr agent` 数据面。功能对等证据见
-> `docs/CODEX_PARITY_MATRIX.md`。固定 ground-truth corpus 的跨模型质量基准仍是
+> `docs/AGENT_PARITY_MATRIX.md`。固定 ground-truth corpus 的跨模型质量基准仍是
 > 发布质量门槛，不以单元测试结果替代。
 
 ---
@@ -21,15 +21,15 @@
 传统 OCR 路径
 用户 → ocr review/scan → OCR 内部 LLM Agent → 评论
 
-Codex 主导路径
-用户 → Codex → ocr agent prepare → review bundle
-             → Codex 自己评审、判断和修改
+host-agent 主导路径
+用户 → host agent → ocr agent prepare → review bundle
+             → host agent 自己评审、判断和修改
              → ocr agent validate-comments（可选）
 ```
 
 最终职责边界：
 
-| 能力 | OCR | Codex |
+| 能力 | OCR | host agent |
 |---|---:|---:|
 | 解析 Git target 和 diff | ✅ | 选择 target |
 | 文件过滤 | ✅ | 可复核 |
@@ -47,9 +47,9 @@ Codex 主导路径
 
 本 fork 的三个不可妥协原则：
 
-1. **Codex 是控制面。** Codex 决定评审目标、执行阶段、上下文读取、风险判断、评论取舍、修复和最终输出。
-2. **OCR 是服务于 Codex 的数据面和工程底座。** OCR 提供 diff、scan、规则、过滤、定位、分组、预算、校验、报告和可观测性，但不在 Codex 模式下替 Codex 做智能决策。
-3. **能力只能迁移，不能丢失。** 改造后的 Codex 主导路径必须达到现有 OCR review/scan 的完整功能对等；在对等验收完成前，不切换现有 Codex Skill 的默认路径。同时保留传统 `ocr review`、`ocr scan` 和独立 LLM backend，确保项目原生能力不被删除。
+1. **host agent 是控制面。** host agent 决定评审目标、执行阶段、上下文读取、风险判断、评论取舍、修复和最终输出。
+2. **OCR 是服务于 host agent 的数据面和工程底座。** OCR 提供 diff、scan、规则、过滤、定位、分组、预算、校验、报告和可观测性，但不在 host-agent 模式下替 host agent 做智能决策。
+3. **能力只能迁移，不能丢失。** 改造后的 host-agent 主导路径必须达到现有 OCR review/scan 的完整功能对等；在对等验收完成前，不切换现有 host agent Skill 的默认路径。同时保留传统 `ocr review`、`ocr scan` 和独立 LLM backend，确保项目原生能力不被删除。
 
 这里的“100%”定义为**功能和使用场景对等**，不是要求两个不同模型对同一代码生成逐字相同的评论。LLM 输出本身不可稳定复现；可强制验收的是目标覆盖、上下文能力、规则执行、评审阶段、输出质量门槛、定位、scan、报告和错误处理全部不退化。
 
@@ -62,12 +62,12 @@ Codex 主导路径
 1. 通用 Agent Skill：`skills/open-code-review/SKILL.md`
 2. Claude Code 命令和插件
 3. Codex 插件：`plugins/open-code-review/.codex-plugin/plugin.json`
-4. Codex Skill：`plugins/open-code-review/skills/open-code-review/SKILL.md`
+4. host agent Skill：`plugins/open-code-review/skills/open-code-review/SKILL.md`
 
-但当前 Codex Skill 的实际执行链是：
+但当前 host agent Skill 的实际执行链是：
 
 ```text
-Codex
+host agent
   └─ ocr review --audience agent
        ├─ 加载 OCR provider 和 API key
        ├─ 创建 OCR LLM client
@@ -75,13 +75,13 @@ Codex
        └─ 返回 OCR 内部 LLM 生成的评论
 ```
 
-这只是“由 Codex 启动 OCR”，不是“由 Codex 完成评审”。它会带来：
+这只是“由 host agent 启动 OCR”，不是“由 host agent 完成评审”。它会带来：
 
 - 双 Agent 控制权不清晰；
 - 需要额外配置 OCR LLM provider；
-- 用户无法确信评审推理使用的是当前 Codex 会话；
-- Codex 只能二次过滤 OCR 的结论，无法完整掌握证据链；
-- 修复责任在 Skill、OCR 输出和 Codex 之间摇摆。
+- 用户无法确信评审推理使用的是当前 host-agent 会话；
+- host agent 只能二次过滤 OCR 的结论，无法完整掌握证据链；
+- 修复责任在 Skill、OCR 输出和 host agent 之间摇摆。
 
 本 fork 可以直接改变默认 Codex 集成行为，不需要为上游现状保留错误抽象。
 
@@ -122,18 +122,18 @@ Codex
 - “确定性缺陷候选”
 - 由 OCR 推断的优先级
 
-这些能力不是取消，而是迁移给 Codex：
+这些能力不是取消，而是迁移给 host agent：
 
-| 原生 OCR 智能阶段 | Codex 主导路径中的等价实现 |
+| 原生 OCR 智能阶段 | host-agent 主导路径中的等价实现 |
 |---|---|
-| plan phase 风险规划 | Codex 先读取目标和规则，生成逐文件或逐批评审计划 |
-| main task 工具循环 | Codex 使用 OCR context 命令及自身只读工具补充证据 |
-| comment tracking/re-tracking | OCR validator 定位；歧义由 Codex重新判断 |
-| reflection/suggestion validation | Codex 对候选评论执行第二遍证据审查 |
-| review filter | Codex 删除仅凭 diff 即可确认错误的评论 |
-| scan dedup | Codex 在批次或全局聚合同类评论 |
-| project summary | Codex 根据完整 scan 结果生成项目总结 |
-| memory compression | 使用 Codex 会话压缩和分片汇总，不再启动第二个 LLM |
+| plan phase 风险规划 | host agent 先读取目标和规则，生成逐文件或逐批评审计划 |
+| main task 工具循环 | host agent 使用 OCR context 命令及自身只读工具补充证据 |
+| comment tracking/re-tracking | OCR validator 定位；歧义由 host agent重新判断 |
+| reflection/suggestion validation | host agent 对候选评论执行第二遍证据审查 |
+| review filter | host agent 删除仅凭 diff 即可确认错误的评论 |
+| scan dedup | host agent 在批次或全局聚合同类评论 |
+| project summary | host agent 根据完整 scan 结果生成项目总结 |
+| memory compression | 使用 host-agent 会话压缩和分片汇总，不再启动第二个 LLM |
 
 未来如果增加 codegraph、AST 或静态调用图，可以增加带来源标识的可选字段，例如：
 
@@ -155,7 +155,7 @@ Codex
 
 当前 diff review 是逐文件并发评审；按语言或目录分组只存在于 scan pipeline。文档和产品说明不应把它描述成通用的“智能文件分组”。
 
-Codex bundle 的分片应作为单独能力设计：
+host agent bundle 的分片应作为单独能力设计：
 
 - 第一阶段：单 bundle，设置体积上限；
 - 第二阶段：按确定规则切分，输出 manifest；
@@ -165,17 +165,17 @@ Codex bundle 的分片应作为单独能力设计：
 
 ## 4. 设计原则
 
-### 4.1 Codex 是唯一评审决策者
+### 4.1 host agent 是唯一评审决策者
 
-Codex 主导模式必须满足：
+host-agent 主导模式必须满足：
 
 1. OCR 不创建或调用 LLM client。
 2. OCR 不生成评论结论。
 3. OCR 不决定问题优先级。
 4. OCR 不修改源代码。
-5. Codex 根据用户请求决定 review target。
-6. Codex 自己阅读 bundle 和必要的仓库文件。
-7. 只有用户明确要求修复时，Codex 才编辑文件。
+5. host agent 根据用户请求决定 review target。
+6. host agent 自己阅读 bundle 和必要的仓库文件。
+7. 只有用户明确要求修复时，host agent 才编辑文件。
 8. commit、push、PR 等外部状态变更仍需要独立授权。
 
 ### 4.2 内部能力保持 Agent 中立
@@ -194,7 +194,7 @@ internal/reviewbundle/
   validate.go
 ```
 
-不推荐把核心实现放进 `internal/codex`。未来 Claude、Cursor 或其他 Agent 也可以复用相同 bundle，而无需复制逻辑。
+不推荐把核心实现放进某个 host 专属包，例如 `internal/agent` 之外的适配器目录。未来 Claude、Cursor 或其他 Agent 也可以复用相同 bundle，而无需复制逻辑。
 
 ### 4.3 默认只读、默认 stdout
 
@@ -216,12 +216,12 @@ ocr agent prepare \
 
 ### 4.4 原生能力零损失
 
-改造采用“新增 Codex 数据面 → 对等测试 → 切换 Skill”的顺序，不删除或改写传统 LLM pipeline：
+改造采用“新增 agent 数据面 → 对等测试 → 切换 Skill”的顺序，不删除或改写传统 LLM pipeline：
 
 ```text
                  ┌─ 传统控制面：OCR LLM Agent（保留）
 Git/rules/tools ─┤
-                 └─ 新控制面：Codex（新增）
+                 └─ 新控制面：host agent（新增）
 ```
 
 两条路径共享确定性底座，但拥有不同的智能控制面。任何公共模块抽取都必须通过现有 `review`、`scan`、`rules`、viewer/session 和输出格式回归测试。
@@ -236,31 +236,31 @@ Git/rules/tools ─┤
 | preview | `ocr agent prepare --preview` | 必须 |
 | include/exclude/default allowlist | 复用现有过滤器并输出原因 | 必须 |
 | custom/project/global/system rules | 复用 resolver，保留来源和合并结果 | 必须 |
-| requirement background | Skill 将用户背景纳入 Codex 评审计划 | 必须 |
-| 大变更 plan phase | Codex 风险规划，阈值和策略写入 contract | 必须 |
-| `file_read` | OCR context read 或 Codex 等价只读工具 | 必须 |
-| `file_find` | OCR context find 或 Codex 等价搜索 | 必须 |
+| requirement background | Skill 将用户背景纳入 host agent 评审计划 | 必须 |
+| 大变更 plan phase | host agent 风险规划，阈值和策略写入 contract | 必须 |
+| `file_read` | OCR context read 或 host-agent 等价只读工具 | 必须 |
+| `file_find` | OCR context find 或 host-agent 等价搜索 | 必须 |
 | `file_read_diff` | bundle patch 或 OCR context diff | 必须 |
-| `code_search` | OCR context search 或 Codex 等价搜索 | 必须 |
-| 多文件/相关文件上下文 | Codex主动选择和读取，OCR 提供安全访问 | 必须 |
-| 评论生成 | Codex | 必须 |
-| 评论 reflection/filter | Codex 二次审查 + OCR 确定性校验 | 必须 |
-| 行号定位和 re-location | 复用 hunk/内容定位，Codex处理歧义 | 必须 |
-| suggestion 验证 | validator 做结构检查，Codex做语义检查 | 必须 |
+| `code_search` | OCR context search 或 host-agent 等价搜索 | 必须 |
+| 多文件/相关文件上下文 | host agent主动选择和读取，OCR 提供安全访问 | 必须 |
+| 评论生成 | host agent | 必须 |
+| 评论 reflection/filter | host agent 二次审查 + OCR 确定性校验 | 必须 |
+| 行号定位和 re-location | 复用 hunk/内容定位，host agent处理歧义 | 必须 |
+| suggestion 验证 | validator 做结构检查，host agent做语义检查 | 必须 |
 | text/JSON 输出 | `ocr agent report` | 必须 |
 | warnings/partial failure | bundle、validation 和 report 统一结构化警告 | 必须 |
 | scan 文件/目录/非 Git 目录 | `ocr agent prepare --scan --path` | 必须 |
 | scan include/exclude | 复用 scan provider/filter | 必须 |
 | scan preview/cost estimate/budget | manifest 给出规模估算并执行硬预算 | 必须 |
 | scan batch strategy/size | 复用 none/by-language/by-directory | 必须 |
-| scan plan | Codex生成批次或逐文件 focus areas | 必须 |
-| scan dedup | Codex全局归并，保留原始评论映射 | 必须 |
-| scan project summary | Codex生成 | 必须 |
+| scan plan | host agent生成批次或逐文件 focus areas | 必须 |
+| scan dedup | host agent全局归并，保留原始评论映射 | 必须 |
+| scan project summary | host agent生成 | 必须 |
 | session/history/viewer | 生成兼容或可迁移的运行记录 | 必须 |
 | telemetry/trace | 保留文件数、耗时、警告、工具调用等可观测性 | 必须 |
 | OCR provider/model/token 指标 | 传统路径原样保留；host-agent 路径只记录 host 可提供的数据，不伪造 | 不适用 |
 
-如果某项使用 Codex 自身工具替代 OCR 工具，必须证明目标 ref 语义、路径安全、行范围和返回内容等价；不能仅以“Codex 也能读文件”为由跳过验收。
+如果某项使用 host agent 自身工具替代 OCR 工具，必须证明目标 ref 语义、路径安全、行范围和返回内容等价；不能仅以“host agent 也能读文件”为由跳过验收。
 
 ---
 
@@ -287,7 +287,7 @@ ocr agent prepare \
   --exclude '**/generated/**,vendor/**' \
   --format json
 
-# 校验 Codex 生成的评论
+# 校验 host agent 生成的评论
 ocr agent validate-comments \
   --bundle /tmp/ocr-review-bundle.json \
   --comments /tmp/agent-review-comments.json
@@ -299,9 +299,9 @@ ocr agent report \
   --format markdown
 ```
 
-### 5.2 Codex 上下文服务
+### 5.2 host-agent 上下文服务
 
-为确保 commit/range/scan 模式下的读取语义与原生 OCR 一致，应把现有只读工具暴露成稳定的 Codex 子命令，或提供语义完全等价的 MCP server：
+为确保 commit/range/scan 模式下的读取语义与原生 OCR 一致，应把现有只读工具暴露成稳定的 host agent 子命令，或提供语义完全等价的 MCP server：
 
 ```bash
 ocr agent context read \
@@ -330,7 +330,7 @@ ocr agent context search \
 - 沿用现有行数限制、路径约束和 Git 并发限制；
 - 只返回数据，不生成评审判断。
 
-Codex可以优先使用自身工具，但只要自身工具不能证明目标 ref 和安全语义等价，就必须使用 OCR context 服务。
+host agent可以优先使用自身工具，但只要自身工具不能证明目标 ref 和安全语义等价，就必须使用 OCR context 服务。
 
 ### 5.3 不提供的源码写入命令
 
@@ -346,9 +346,9 @@ ocr agent apply-suggestions
 - 目标代码可能在评审期间变化；
 - 文本替换存在多处匹配和缩进问题；
 - 跨文件修改需要事务和冲突处理；
-- 自动写文件违背 OCR 在 Codex 模式下的只读边界。
+- 自动写文件违背 OCR 在 host-agent 模式下的只读边界。
 
-Codex 使用自己的编辑工具完成修改，OCR 最多负责重新 prepare 和校验。
+host agent 使用自己的编辑工具完成修改，OCR 最多负责重新 prepare 和校验。
 
 ### 5.4 scan 模式
 
@@ -358,7 +358,7 @@ Codex 使用自己的编辑工具完成修改，OCR 最多负责重新 prepare �
 ocr agent prepare --scan --path internal/agent --format json
 ```
 
-不要为了命令表面统一，在第一阶段把 scan pipeline 强行塞进 diff bundle。但 scan 是最终切换 Codex Skill 前的强制对等项，不是可以放弃的可选增强。
+不要为了命令表面统一，在第一阶段把 scan pipeline 强行塞进 diff bundle。但 scan 是最终切换 host agent Skill 前的强制对等项，不是可以放弃的可选增强。
 
 ---
 
@@ -375,7 +375,7 @@ ocr agent prepare --scan --path internal/agent --format json
 - 保留原始 diff 作为证据；
 - 提供足够的 hunk 行号信息；
 - 明确所有字段的来源；
-- 不夹带给 Codex 的动态执行指令。
+- 不夹带给 host agent 的动态执行指令。
 
 ### 6.2 推荐的 `agent-review-bundle/v1`
 
@@ -462,7 +462,7 @@ workspace 模式没有稳定的 `head_sha` 可以完整描述 dirty state，因�
 
 ### 6.4 规则去重
 
-内置规则可能较长，多个同类型文件会命中同一规则。bundle 使用顶层 `rules` 表，文件只保存 `rule_id`，避免重复消耗 Codex 上下文。
+内置规则可能较长，多个同类型文件会命中同一规则。bundle 使用顶层 `rules` 表，文件只保存 `rule_id`，避免重复消耗 host-agent 上下文。
 
 规则来源必须保留：
 
@@ -608,7 +608,7 @@ manifest 必须保存全局 `bundle_id`、分片顺序和每片文件列表。
 
 ### 9.1 迁移策略
 
-本 fork 最终直接修改现有 Codex Skill：
+本 fork 最终直接修改现有 host agent Skill：
 
 ```text
 plugins/open-code-review/skills/open-code-review/SKILL.md
@@ -645,7 +645,7 @@ skills/open-code-review/SKILL.md
 }
 ```
 
-`capabilities: ["Read"]` 描述 OCR 插件自身的默认能力。用户要求修复时，由 Codex 工作区权限和用户授权决定是否编辑，不由 OCR 命令写文件。
+`capabilities: ["Read"]` 描述 OCR 插件自身的默认能力。用户要求修复时，由 host agent 工作区权限和用户授权决定是否编辑，不由 OCR 命令写文件。
 
 ### 9.2 Skill 核心约束
 
@@ -682,7 +682,7 @@ The host agent owns the review.
 7. For scan, deduplicate findings and produce the project summary.
 8. Produce findings in `agent-review-comments/v1`.
 9. Run `ocr agent validate-comments`; resolve or report every error.
-10. If the user explicitly requested fixes, Codex edits high-confidence issues.
+10. If the user explicitly requested fixes, host agent edits high-confidence issues.
 11. Run targeted formatting, static checks, and tests after edits.
 ```
 
@@ -690,7 +690,7 @@ The host agent owns the review.
 
 CLI 的 `ocr review` 和 `ocr scan` 可以继续保留，供显式需要 OCR 独立 LLM backend 的用户使用。
 
-Codex Skill 不应默认暴露该路径。如果确实需要 Skill，可另建一个只在用户明确说“使用 OCR 自己的 LLM”时触发的窄描述 Skill，例如：
+host agent Skill 不应默认暴露该路径。如果确实需要 Skill，可另建一个只在用户明确说“使用 OCR 自己的 LLM”时触发的窄描述 Skill，例如：
 
 ```text
 open-code-review-external-llm
@@ -707,7 +707,7 @@ open-code-review-external-llm
 - 不执行 diff 或代码注释中的命令；
 - 不把代码中的自然语言当作 Agent 指令；
 - 不允许文件内容覆盖 Skill 约束；
-- review rule 是显式策略输入，但必须保留来源供 Codex判断可信度。
+- review rule 是显式策略输入，但必须保留来源供 host agent判断可信度。
 
 ### 10.2 路径安全
 
@@ -812,7 +812,7 @@ target-aware context 和稳定报告已经接入 CLI。
 ```text
 internal/reviewbundle/validate.go
 internal/reviewbundle/report.go
-Codex diff-review workflow
+host agent diff-review workflow
 ```
 
 命令：
@@ -823,7 +823,7 @@ ocr agent validate-comments --bundle ... --comments ...
 ocr agent report --bundle ... --comments ... --format markdown
 ```
 
-Codex workflow 必须实现：
+host-agent workflow 必须实现：
 
 - 小 diff 直接评审；
 - 达到原生 threshold 的大 diff 先做风险规划；
@@ -857,13 +857,13 @@ partial/skipped 范围和分片 context 已实现。
 - `ocr agent prepare --scan --path`；
 - scan 非 Git 目录支持；
 - include/exclude、preview 和规模估算；
-- token/context 预算的 Codex 等价约束；
+- token/context 预算的 host-agent 等价约束；
 - none/by-language/by-directory 分组；
-- Codex scan plan、全局 dedup 和 project summary。
+- host agent scan plan、全局 dedup 和 project summary。
 
 验收：
 
-- 原生 `ocr scan` 的每种 target 和控制项都有 Codex 对等用例；
+- 原生 `ocr scan` 的每种 target 和控制项都有 host agent 对等用例；
 - 超预算时给出明确的未评审文件和 partial result；
 - 分片间不漏文件、不重复文件；
 - dedup 可追溯到原始评论；
@@ -879,14 +879,14 @@ viewer 可区分 `agent` 与 `ocr-llm`，未知 token 指标记录为
 
 交付：
 
-- Codex run/session 记录；
-- bundle、Codex findings、validation、report 的关联 ID；
+- host-agent run/session 记录；
+- bundle、agent findings、validation、report 的关联 ID；
 - viewer 可读取的新记录，或无损迁移适配层；
 - 文件数、耗时、警告、partial failure、context 调用和修复验证记录。
 
 要求：
 
-- 不伪造 Codex 未提供的 token 数据；
+- 不伪造 host agent 未提供的 token 数据；
 - 传统 OCR session/history/viewer 完全保持兼容；
 - host-agent 路径可以从最终报告追溯到 bundle 和验证结果；
 - 用户可以识别一次运行是 `ocr-llm` 还是 `agent`。
@@ -895,7 +895,7 @@ viewer 可区分 `agent` 与 `ocr-llm`，未知 token 指标记录为
 
 实施状态：**Skill 已切换，功能矩阵已自动化覆盖**。原生 CLI 仍完整保留。固定
 ground-truth corpus 的跨模型召回率/误报率对比仍是发布质量门槛，不能由单元测试
-替代；详见 `docs/CODEX_PARITY_MATRIX.md`。
+替代；详见 `docs/AGENT_PARITY_MATRIX.md`。
 
 交付：
 
@@ -922,9 +922,9 @@ plugins/open-code-review/CODEX.ko-KR.md
 - 不运行 `ocr llm test`；
 - 不运行 `ocr review` 或 `ocr scan`；
 - 不要求 OCR provider；
-- Codex 自己输出 findings；
+- host agent 自己输出 findings；
 - review、scan、plan、context、filter、dedup、summary、定位、报告和可观测性均达到原生能力对等；
-- 仅在用户明确要求时由 Codex 修改代码；
+- 仅在用户明确要求时由 host agent 修改代码；
 - 发布后仍可显式使用传统 `ocr review` 和 `ocr scan`，没有原生命令或能力被移除。
 
 ---
@@ -977,7 +977,7 @@ ocr scan
 ocr rules check
 ```
 
-Codex 新路径不能改变现有传统 OCR JSON 格式，也不能修改 `model.LlmComment` 的兼容语义。
+host-agent 新路径不能改变现有传统 OCR JSON 格式，也不能修改 `model.LlmComment` 的兼容语义。
 
 ### 12.4 能力与质量对等基准
 
@@ -1004,7 +1004,7 @@ Codex 新路径不能改变现有传统 OCR JSON 格式，也不能修改 `model
 7. timeout、budget、partial failure 不得被报告为完整成功。
 8. 所有指标、样本、模型版本和运行次数可追溯。
 
-如果 Codex 模型或平台不暴露某项内部指标，例如精确 token 使用量，应明确标记 `not_available`。这不属于评审能力缺失，但禁止伪造等价数据。
+如果 host-agent 模型或平台不暴露某项内部指标，例如精确 token 使用量，应明确标记 `not_available`。这不属于评审能力缺失，但禁止伪造等价数据。
 
 ### 12.5 端到端验收场景
 
@@ -1012,14 +1012,14 @@ Codex 新路径不能改变现有传统 OCR JSON 格式，也不能修改 `model
 
 ```text
 用户：review current changes
-Codex：运行 prepare → 自己评审 → 输出 findings → 不修改文件
+host agent：运行 prepare → 自己评审 → 输出 findings → 不修改文件
 ```
 
 场景二：评审并修复
 
 ```text
 用户：review and fix current changes
-Codex：运行 prepare → 自己评审 → 校验评论 → 编辑代码 → 运行测试
+host agent：运行 prepare → 自己评审 → 校验评论 → 编辑代码 → 运行测试
 OCR：全程不写源码
 ```
 
@@ -1042,14 +1042,14 @@ prepare → 用户/工具修改目标文件 → validate-comments
 
 | 风险 | 影响 | 缓解 |
 |---|---|---|
-| bundle 太大 | Codex 上下文浪费或截断 | 规则去重、体积上限、后续分片 |
+| bundle 太大 | host-agent 上下文浪费或截断 | 规则去重、体积上限、后续分片 |
 | 工作区在评审中变化 | 评论错位 | bundle/file/diff 哈希和 stale 检查 |
-| source prompt injection | Codex 被代码内容误导执行命令 | Skill 明确把 source/diff 当数据 |
-| 规则文件本身不可信 | 恶意仓库注入评审指令 | 保留规则来源，由 Codex区分项目策略与用户策略 |
+| source prompt injection | host agent 被代码内容误导执行命令 | Skill 明确把 source/diff 当数据 |
+| 规则文件本身不可信 | 恶意仓库注入评审指令 | 保留规则来源，由 host agent区分项目策略与用户策略 |
 | diff pipeline 与 Agent 耦合 | prepare 被迫构造 LLM 组件 | 抽取 `internal/reviewbundle` 服务 |
 | 评论行号漂移 | 报告不可用 | 严格校验，定位只作为建议 |
-| 两个 Skill 同时触发 | Codex 选择错误执行路径 | 直接替换现有 Skill，不并存宽泛 Skill |
-| 自动 suggestion 写错代码 | 数据损坏 | 不实现 OCR apply，由 Codex 编辑并测试 |
+| 两个 Skill 同时触发 | host agent 选择错误执行路径 | 直接替换现有 Skill，不并存宽泛 Skill |
+| 自动 suggestion 写错代码 | 数据损坏 | 不实现 OCR apply，由 host agent 编辑并测试 |
 | 未达到 scan 对等就切换 Skill | 改造后能力缩水 | scan 在 Phase 3 完成，最终 Phase 5 才切换 |
 | 用“模型不同”掩盖质量退化 | 名义对等、实际漏报 | 固定 benchmark，多轮语义评估和人工 ground truth |
 
@@ -1066,18 +1066,18 @@ prepare → 用户/工具修改目标文件 → validate-comments
 不采用：
 
 ```text
-OCR → codex exec → 嵌套 Codex Agent
+OCR → codex exec → 嵌套 host agent
 ```
 
 这会导致会话、权限、输出解析、取消和审计边界复杂化。正确方向始终是：
 
 ```text
-Codex → OCR deterministic tooling
+host agent → OCR deterministic tooling
 ```
 
-### 14.3 把 Codex/OpenAI key 配给 OCR
+### 14.3 把 host-agent/OpenAI key 配给 OCR
 
-这仍然是 OCR 调用 OpenAI-compatible API，不是当前 Codex Agent 会话，无法继承当前会话的工具、权限、上下文和编辑流程。
+这仍然是 OCR 调用 OpenAI-compatible API，不是当前 host-agent 会话，无法继承当前会话的工具、权限、上下文和编辑流程。
 
 ### 14.4 shell 版长期 MVP
 
@@ -1087,7 +1087,7 @@ Codex → OCR deterministic tooling
 
 ### 14.5 OCR 自动应用 suggestion
 
-不采用。Codex 已经拥有更完整的工作区编辑、验证和用户授权上下文，OCR 没有必要成为第二个写入者。
+不采用。host agent 已经拥有更完整的工作区编辑、验证和用户授权上下文，OCR 没有必要成为第二个写入者。
 
 ---
 
@@ -1096,8 +1096,8 @@ Codex → OCR deterministic tooling
 完整改造预计涉及：
 
 ```text
-docs/CODEX_SKILL_FEASIBILITY.md
-docs/CODEX_REVIEW_BUNDLE_SCHEMA.md
+docs/AGENT_SKILL_FEASIBILITY.md
+docs/AGENT_REVIEW_BUNDLE_SCHEMA.md
 
 cmd/opencodereview/main.go
 cmd/opencodereview/agent_cmd.go
@@ -1145,7 +1145,7 @@ internal/reviewbundle/schemas/agent-review-comments-v1.json
 
 本 fork 应采用以下方案：
 
-> 将 Open Code Review 改造成以 Codex 为唯一智能控制面的完整评审平台。OCR 作为 Codex 的数据面和工程底座，保留并提供 Git diff、scan、文件过滤、规则匹配、target-aware context、分组、预算、hunk 定位、一致性校验、报告、session 和可观测性；Codex 负责计划、工具调度、评审推理、证据判断、reflection、filter、dedup、项目总结、优先级和用户授权后的代码修改。
+> 将 Open Code Review 改造成以 host agent 为唯一智能控制面的完整评审平台。OCR 作为 host agent 的数据面和工程底座，保留并提供 Git diff、scan、文件过滤、规则匹配、target-aware context、分组、预算、hunk 定位、一致性校验、报告、session 和可观测性；host agent 负责计划、工具调度、评审推理、证据判断、reflection、filter、dedup、项目总结、优先级和用户授权后的代码修改。
 
 实施优先级：
 
@@ -1154,14 +1154,14 @@ internal/reviewbundle/schemas/agent-review-comments-v1.json
 3. 补齐 context、严格 validator 和 diff review 完整智能阶段；
 4. 补齐分片、scan、dedup、project summary、session 和 viewer；
 5. 使用固定 benchmark 证明功能覆盖率 100% 且质量不低于原生基线；
-6. 只有全部对等门槛通过后，才切换现有 Codex Skill；
+6. 只有全部对等门槛通过后，才切换现有 host agent Skill；
 7. 不并存两个宽泛触发的 Skill；
-8. 不实现 OCR 自动 apply suggestion，源码修改始终由 Codex 执行。
+8. 不实现 OCR 自动 apply suggestion，源码修改始终由 host agent 执行。
 
-改造完成后的判定不是“Codex 能调用一个 prepare 命令”，而是：
+改造完成后的判定不是“host agent 能调用一个 prepare 命令”，而是：
 
 ```text
-Codex 主导权 = 100%
+host-agent 主导权 = 100%
 OCR 原生评审能力保留率 = 100%
 OCR agent 模式内部 LLM 调用 = 0
 OCR agent 模式源码写入 = 0

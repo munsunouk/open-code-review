@@ -122,7 +122,7 @@ ocr agent report --session-id review-20260630 --bundle /tmp/bundle.json --commen
 - host-agent 路径不需要 OCR provider。
 - `ocr review` 和 `ocr scan` 仍然保留给明确想走原生 OCR 外部 LLM 流程的用户。
 - 默认只读，只有明确要求修复时才修改文件。
-- 不要把 `ocr agent` 当成独立的智能体，它只是 Codex 的确定性数据面和工具面。
+- 不要把 `ocr agent` 当成独立的智能体，它只是 host-agent 的确定性数据面和工具面。
 
 ## 7. Codegraph helper script
 

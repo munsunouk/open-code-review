@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -150,6 +151,40 @@ func TestAgentRecorderAllowsManifestToBundleCorrelation(t *testing.T) {
 	records := readAgentRecords(t, recorder.Path())
 	if records[1]["bundleId"] != "sha256:nested-bundle" {
 		t.Fatalf("event bundleId = %v, want nested bundle id", records[1]["bundleId"])
+	}
+}
+
+func TestAgentRecorderWaitForStartTimesOutOnEmptyFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run-empty.jsonl")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	recorder := &AgentRecorder{path: path}
+	_, err := waitForAgentSessionStart(recorder, "sha256:bundle", "run-empty")
+	if err == nil || !strings.Contains(err.Error(), "has no session_start") {
+		t.Fatalf("waitForAgentSessionStart() error = %v, want empty start error", err)
+	}
+}
+
+func TestAgentSessionReadersIgnoreInvalidRecords(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run.jsonl")
+	if err := os.WriteFile(
+		path,
+		[]byte("{not-json}\n{\"type\":\"agent_event\"}\n{\"type\":\"session_start\",\"timestamp\":\"bad\"}\n"),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	fallback := time.Unix(456, 0)
+	if got := readAgentSessionStart(path, fallback); !got.Equal(fallback) {
+		t.Fatalf("readAgentSessionStart() = %v, want fallback", got)
+	}
+	bundleID, err := readAgentSessionBundleID(path)
+	if err != nil {
+		t.Fatalf("readAgentSessionBundleID() error = %v", err)
+	}
+	if bundleID != "" {
+		t.Fatalf("bundleID = %q, want empty when session_start has no bundleId", bundleID)
 	}
 }
 

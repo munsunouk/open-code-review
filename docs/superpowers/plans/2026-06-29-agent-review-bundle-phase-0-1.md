@@ -67,7 +67,7 @@ Expected: PASS.
 - Create: `internal/reviewbundle/schema_test.go`
 - Create: `internal/reviewbundle/schemas/agent-review-bundle-v1.json`
 - Create: `internal/reviewbundle/schemas/agent-review-comments-v1.json`
-- Create: `docs/CODEX_REVIEW_BUNDLE_SCHEMA.md`
+- Create: `docs/AGENT_REVIEW_BUNDLE_SCHEMA.md`
 
 - [x] **Step 1: Write failing protocol tests**
 
@@ -103,7 +103,7 @@ Each file contains status, reviewability, exclusion reason, hashes, deduplicated
 
 - [x] **Step 4: Document canonical hashing and error semantics**
 
-`docs/CODEX_REVIEW_BUNDLE_SCHEMA.md` must define length-prefixed SHA-256 inputs, `sha256:` formatting, target resolution rules, workspace state components, bundle ID exclusion of timestamps and itself, 1-based new-file line numbers, size-limit failure, and the reserved validation error codes.
+`docs/AGENT_REVIEW_BUNDLE_SCHEMA.md` must define length-prefixed SHA-256 inputs, `sha256:` formatting, target resolution rules, workspace state components, bundle ID exclusion of timestamps and itself, 1-based new-file line numbers, size-limit failure, and the reserved validation error codes.
 
 - [x] **Step 5: Run protocol tests**
 
