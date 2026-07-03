@@ -321,7 +321,7 @@ Install and enable `Open Code Review`, then start a new Codex thread and invoke 
 @Open Code Review review and fix high-confidence issues
 ```
 
-This registers a Codex-owned review skill. OCR supplies deterministic review
+This registers a host-agent review skill. OCR supplies deterministic review
 evidence and target-aware context; Codex performs all planning, reasoning,
 prioritization, reporting, and explicitly requested fixes.
 
@@ -334,7 +334,7 @@ ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.j
 ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-The Codex-owned path does not initialize OCR's LLM backend and requires no OCR
+The host-agent path does not initialize OCR's LLM backend and requires no OCR
 provider or API key. Native `ocr review` and `ocr scan` remain available when a
 user explicitly wants OCR's independent external-LLM workflow.
 
@@ -368,13 +368,15 @@ After installation, invoke it in Cursor:
 @Open Code Review review and fix high-confidence issues
 ```
 
-This registers a Cursor skill that runs the local OCR CLI:
+This registers a Cursor skill for the host-agent workflow:
 
 ```bash
-ocr review --audience agent
+ocr agent prepare --format json
+ocr agent validate-comments --bundle /tmp/bundle.json --comments /tmp/comments.json --output /tmp/validation.json
+ocr agent report --bundle /tmp/bundle.json --comments /tmp/comments.json --validation /tmp/validation.json --format markdown
 ```
 
-This integration does not change OCR's internal LLM backend. OCR itself still requires the `ocr` CLI to be installed and configured as described in the CLI setup section.
+This integration does not initialize OCR's LLM backend. Use native `ocr review` only when you explicitly want OCR's external-LLM workflow.
 
 #### Option 5: Copy the Command File Directly
 

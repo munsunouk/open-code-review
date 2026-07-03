@@ -123,3 +123,8 @@ ocr agent report --session-id review-20260630 --bundle /tmp/bundle.json --commen
 - `ocr review` 和 `ocr scan` 仍然保留给明确想走原生 OCR 外部 LLM 流程的用户。
 - 默认只读，只有明确要求修复时才修改文件。
 - 不要把 `ocr agent` 当成独立的智能体，它只是 Codex 的确定性数据面和工具面。
+
+## 7. Codegraph helper script
+
+`scripts/codex-codegraph` is an optional local wrapper for Codex users who also run Codegraph MCP. It requires `codex`, `codegraph`, and `jq` on `PATH`. Configure OCR's native MCP path with `ocr config set mcp_servers.codegraph.*` when you want the CLI-owned integration instead of the helper script.
+

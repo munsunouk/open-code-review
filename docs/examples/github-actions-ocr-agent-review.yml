@@ -1,8 +1,8 @@
 # Agent workflow CI example
+#
+# This workflow exercises the deterministic host-agent path without an OCR LLM provider.
+# Replace the comments generation step with your host agent in production workflows.
 
-This workflow exercises the deterministic host-agent path without an OCR LLM provider.
-
-```yaml
 name: ocr-agent-review
 on:
   pull_request:
@@ -15,33 +15,44 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Fetch base branch
+        run: git fetch origin "${{ github.base_ref }}"
+
       - name: Install OCR
-        run: go install github.com/open-code-review/open-code-review/cmd/opencodereview@latest
+        run: go install ./cmd/opencodereview
 
       - name: Prepare bundle
         run: |
           ocr agent prepare \
             --repo . \
-            --from origin/${{ github.base_ref }} \
+            --from "origin/${{ github.base_ref }}" \
             --to HEAD \
             --output /tmp/bundle.json
+
+      - name: Build comments fixture
+        run: |
+          BUNDLE_ID="$(jq -r '.bundle_id' /tmp/bundle.json)"
+          jq --arg bundle_id "$BUNDLE_ID" \
+            '.bundle_id = $bundle_id' \
+            fixtures/agent-comments.template.json > /tmp/comments.json
 
       - name: Validate comments
         run: |
           ocr agent validate-comments \
             --repo . \
             --bundle /tmp/bundle.json \
-            --comments ./fixtures/agent-comments.json \
+            --comments /tmp/comments.json \
             --output /tmp/validation.json
 
       - name: Render report
         run: |
           ocr agent report \
             --bundle /tmp/bundle.json \
-            --comments ./fixtures/agent-comments.json \
+            --comments /tmp/comments.json \
             --validation /tmp/validation.json \
             --format markdown \
             --output /tmp/report.md
-```
-
-Replace `./fixtures/agent-comments.json` with comments produced by your host agent in production workflows.

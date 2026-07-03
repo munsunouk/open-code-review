@@ -387,7 +387,7 @@ ocr config set mcp_servers.codegraph.setup 'codegraph init && codegraph index'`;
                     <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: '20px' }}>{t('docs.reviewAgentDesc')}</p>
                   </div>
                 </div>
-                <CodeBlock code="ocr review --audience agent" onCopy={() => handleCopy('ocr review --audience agent')} />
+                <CodeBlock code={`ocr agent prepare --format json\nocr agent validate-comments --bundle bundle.json --comments comments.json --output validation.json\nocr agent report --bundle bundle.json --comments comments.json --validation validation.json --format markdown`} onCopy={() => handleCopy('ocr agent prepare')} />
               </div>
               {/* Dry-Run Preview */}
               <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 16, border: '1px solid rgba(255,255,255,0.16)' }}>
