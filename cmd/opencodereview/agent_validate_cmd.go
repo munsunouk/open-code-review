@@ -68,22 +68,6 @@ func runAgentValidateCommentsForCommand(
 		repoDir,
 		gitcmd.New(options.maxGitProcs),
 	)
-	if err := recordAgentEvent(
-		repoDir,
-		options.sessionID,
-		bundle.BundleID,
-		"validate",
-		session.AgentEvent{
-			Files:           comments.Summary.FilesReviewed,
-			Findings:        len(comments.Comments),
-			Warnings:        len(result.Warnings),
-			DurationMS:      time.Since(started).Milliseconds(),
-			ValidationValid: &result.Valid,
-		},
-		false,
-	); err != nil {
-		return err
-	}
 	encoded, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode validation result: %w", err)
@@ -95,6 +79,24 @@ func runAgentValidateCommentsForCommand(
 	} else {
 		if _, err := writer.Write(append(encoded, '\n')); err != nil {
 			return err
+		}
+	}
+	if options.sessionID != "" {
+		if err := recordAgentEvent(
+			repoDir,
+			options.sessionID,
+			bundle.BundleID,
+			"validate",
+			session.AgentEvent{
+				Files:           comments.Summary.FilesReviewed,
+				Findings:        len(comments.Comments),
+				Warnings:        len(result.Warnings),
+				DurationMS:      time.Since(started).Milliseconds(),
+				ValidationValid: &result.Valid,
+			},
+			false,
+		); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: agent session not recorded: %v\n", err)
 		}
 	}
 	if !result.Valid {
