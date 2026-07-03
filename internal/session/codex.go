@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -55,12 +56,26 @@ func OpenCodexRecorder(repoDir, runID, bundleID string) (*CodexRecorder, error) 
 	info, statErr := os.Stat(path)
 	if statErr == nil && info.Size() > 0 {
 		recorder.started = readCodexSessionStart(path, recorder.started)
+		existingBundleID, readErr := readCodexSessionBundleID(path)
+		if readErr != nil {
+			return nil, readErr
+		}
+		if existingBundleID != "" {
+			if bundleID != "" && bundleID != existingBundleID {
+				return nil, fmt.Errorf(
+					"session %q is already bound to bundle %q",
+					runID,
+					existingBundleID,
+				)
+			}
+			recorder.bundleID = existingBundleID
+		}
 		return recorder, nil
 	}
 	if statErr != nil && !os.IsNotExist(statErr) {
 		return nil, fmt.Errorf("stat session file: %w", statErr)
 	}
-	if err := recorder.write(map[string]any{
+	if err := recorder.writeExclusiveStart(map[string]any{
 		"uuid":         generateUUID(),
 		"parentUuid":   nil,
 		"type":         "session_start",
@@ -73,6 +88,9 @@ func OpenCodexRecorder(repoDir, runID, bundleID string) (*CodexRecorder, error) 
 		"bundleId":     bundleID,
 		"tokenUsage":   "not_available",
 	}); err != nil {
+		if os.IsExist(err) {
+			return OpenCodexRecorder(repoDir, runID, bundleID)
+		}
 		return nil, err
 	}
 	return recorder, nil
@@ -149,6 +167,56 @@ func readCodexSessionStart(path string, fallback time.Time) time.Time {
 	return fallback
 }
 
+func readCodexSessionBundleID(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("open session file: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		var record map[string]any
+		if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
+			continue
+		}
+		if recordType, _ := record["type"].(string); recordType != "session_start" {
+			continue
+		}
+		bundleID, _ := record["bundleId"].(string)
+		return bundleID, nil
+	}
+	return "", nil
+}
+
+func (recorder *CodexRecorder) writeExclusiveStart(record map[string]any) error {
+	recorder.mu.Lock()
+	defer recorder.mu.Unlock()
+	encoded, err := json.Marshal(record)
+	if err != nil {
+		return fmt.Errorf("marshal agent session record: %w", err)
+	}
+	file, err := os.OpenFile(
+		recorder.path,
+		os.O_CREATE|os.O_WRONLY|os.O_EXCL,
+		0o600,
+	)
+	if err != nil {
+		return err
+	}
+	if err := lockSessionFile(file); err != nil {
+		_ = file.Close()
+		return fmt.Errorf("lock agent session: %w", err)
+	}
+	if _, err := file.Write(append(encoded, '\n')); err != nil {
+		unlockSessionFile(file)
+		_ = file.Close()
+		return fmt.Errorf("write agent session: %w", err)
+	}
+	unlockSessionFile(file)
+	return file.Close()
+}
+
 func (recorder *CodexRecorder) write(record map[string]any) error {
 	recorder.mu.Lock()
 	defer recorder.mu.Unlock()
@@ -164,12 +232,29 @@ func (recorder *CodexRecorder) write(record map[string]any) error {
 	if err != nil {
 		return fmt.Errorf("open agent session: %w", err)
 	}
-	if _, err := file.Write(append(encoded, '\n')); err != nil {
+	if err := lockSessionFile(file); err != nil {
 		_ = file.Close()
-		return fmt.Errorf("write agent session: %w", err)
+		return fmt.Errorf("lock agent session: %w", err)
 	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("close agent session: %w", err)
+	_, writeErr := file.Write(append(encoded, '\n'))
+	unlockErr := unlockSessionFile(file)
+	closeErr := file.Close()
+	if writeErr != nil {
+		return fmt.Errorf("write agent session: %w", writeErr)
+	}
+	if unlockErr != nil {
+		return fmt.Errorf("unlock agent session: %w", unlockErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close agent session: %w", closeErr)
 	}
 	return nil
+}
+
+func lockSessionFile(file *os.File) error {
+	return syscall.Flock(int(file.Fd()), syscall.LOCK_EX)
+}
+
+func unlockSessionFile(file *os.File) error {
+	return syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
 }
