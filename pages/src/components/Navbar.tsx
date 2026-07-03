@@ -187,7 +187,7 @@ const Navbar: React.FC = () => {
             rel="noopener noreferrer"
             style={{ display: 'flex', alignItems: 'center', opacity: 0.6 }}
           >
-            <img src={socialIcon} alt="Social" style={{ width: 20, height: 20 }} />
+            <img src={socialIcon} alt="Social" style={{ width: 22, height: 22 }} />
           </a>
           <button
             onClick={() => navigate('/quickstart')}

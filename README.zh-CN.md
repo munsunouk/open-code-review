@@ -92,6 +92,10 @@ Open Code Review 的核心设计理念是将确定性工程与 Agent 结合，�
 
 ## 如何使用
 
+### 前置条件
+
+- **Git >= 2.41** — Open Code Review 依赖 Git 进行 diff 生成、代码搜索和仓库操作。
+
 ### CLI
 
 #### 安装

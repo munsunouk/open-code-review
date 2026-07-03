@@ -92,6 +92,10 @@ The agent's strengths are concentrated where they matter most — dynamic decisi
 
 ## How to Use
 
+### Prerequisites
+
+- **Git >= 2.41** — Open Code Review relies on Git for diff generation, code search, and repository operations.
+
 ### CLI
 
 #### Install
