@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -23,6 +24,9 @@ func main() {
 
 	if err := dispatch(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		if errors.As(err, &validationFailedError{}) {
+			os.Exit(2)
+		}
 		os.Exit(1)
 	}
 }
