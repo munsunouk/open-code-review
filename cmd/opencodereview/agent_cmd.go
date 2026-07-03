@@ -300,6 +300,7 @@ func executeAgentDiffPartition(
 		session.AgentEvent{
 			Files:      manifest.Summary.ReviewableFiles,
 			Warnings:   len(manifest.Warnings),
+			Partial:    manifest.Partial,
 			DurationMS: time.Since(started).Milliseconds(),
 		},
 		false,
