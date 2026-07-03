@@ -37,7 +37,7 @@ func runCodexReportForCommand(command string, args []string, writer io.Writer) e
 	if err != nil {
 		return err
 	}
-	validation, err := loadValidationResult(options.validationPath)
+	validation, err := requireValidationReport(options.validationPath)
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func runCodexReportForCommand(command string, args []string, writer io.Writer) e
 				paths = append(paths, file.Path)
 			}
 		}
-		valid := validation == nil || validation.Valid
+		valid := validation.Valid
 		if err := recordCodexEvent(
 			repoDir,
 			options.sessionID,
@@ -90,7 +90,7 @@ func parseCodexReportFlags(command string, args []string) (codexReportOptions, e
 	options := codexReportOptions{}
 	flags.StringVar(&options.bundlePath, "bundle", "", "review bundle JSON path")
 	flags.StringVar(&options.commentsPath, "comments", "", agentCommentsHelp(command))
-	flags.StringVar(&options.validationPath, "validation", "", "optional validation result JSON path")
+	flags.StringVar(&options.validationPath, "validation", "", "validation result JSON path from validate-comments")
 	flags.StringVar(&options.outputPath, "output", "", "explicit report output path")
 	flags.StringVarP(&options.format, "format", "f", "markdown", "markdown, text, or json")
 	flags.StringVar(&options.repoDir, "repo", "", "repository root for session persistence")
@@ -104,6 +104,9 @@ func parseCodexReportFlags(command string, args []string) (codexReportOptions, e
 	}
 	if options.bundlePath == "" || options.commentsPath == "" {
 		return options, fmt.Errorf("--bundle and --comments are required")
+	}
+	if options.validationPath == "" {
+		return options, fmt.Errorf("--validation is required")
 	}
 	switch options.format {
 	case "markdown", "text", "json":
@@ -182,7 +185,7 @@ func loadValidationResult(path string) (*reviewbundle.ValidationResult, error) {
 
 func printCodexReportUsage(writer io.Writer, command string) {
 	fmt.Fprintln(writer, `Usage:
-  ocr `+command+` report --bundle FILE --comments FILE
-                   [--validation FILE] [--format markdown|text|json]
+  ocr `+command+` report --bundle FILE --comments FILE --validation FILE
+                   [--format markdown|text|json]
                    [--output FILE] [--repo PATH] [--session-id ID]`)
 }

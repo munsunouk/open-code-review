@@ -89,10 +89,18 @@ func runCodexValidateCommentsForCommand(
 		return fmt.Errorf("encode validation result: %w", err)
 	}
 	if options.outputPath != "" {
-		return writePrivateFile(options.outputPath, append(encoded, '\n'))
+		if err := writePrivateFile(options.outputPath, append(encoded, '\n')); err != nil {
+			return err
+		}
+	} else {
+		if _, err := writer.Write(append(encoded, '\n')); err != nil {
+			return err
+		}
 	}
-	_, err = writer.Write(append(encoded, '\n'))
-	return err
+	if !result.Valid {
+		return validationFailedError{}
+	}
+	return nil
 }
 
 func parseCodexValidateFlags(command string, args []string) (codexValidateOptions, error) {

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -288,12 +289,21 @@ func TestCodexReportEmitsMarkdown(t *testing.T) {
 	}
 	commentsPath := filepath.Join(directory, "comments.json")
 	writeAgentJSON(t, commentsPath, comments)
+	validationPath := filepath.Join(directory, "validation.json")
+	writeAgentJSON(t, validationPath, reviewbundle.ValidationResult{
+		SchemaVersion: "codex-review-validation/v1",
+		BundleID:      bundle.BundleID,
+		Valid:         true,
+		Errors:        []reviewbundle.ValidationNotice{},
+		Warnings:      []reviewbundle.ValidationNotice{},
+	})
 
 	var output bytes.Buffer
 	err = runAgentWithWriter([]string{
 		"report",
 		"--bundle", bundlePath,
 		"--comments", commentsPath,
+		"--validation", validationPath,
 		"--format", "markdown",
 	}, &output)
 	if err != nil {
@@ -413,12 +423,19 @@ func TestCodexReportRejectsBundleIDMismatch(t *testing.T) {
 	}
 	commentsPath := filepath.Join(directory, "comments.json")
 	writeAgentJSON(t, commentsPath, comments)
+	validationPath := filepath.Join(directory, "validation.json")
+	writeAgentJSON(t, validationPath, reviewbundle.ValidationResult{
+		SchemaVersion: "codex-review-validation/v1",
+		BundleID:      "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		Valid:         true,
+	})
 
 	var output bytes.Buffer
 	err := runAgentWithWriter([]string{
 		"report",
 		"--bundle", bundlePath,
 		"--comments", commentsPath,
+		"--validation", validationPath,
 		"--format", "markdown",
 	}, &output)
 	if err == nil || !strings.Contains(err.Error(), "comments require") {
@@ -566,6 +583,107 @@ func TestCodexSkillsUseCodexOwnedWorkflow(t *testing.T) {
 				t.Errorf("%s contains legacy default %q", path, forbidden)
 			}
 		}
+	}
+}
+
+func TestCodexValidateCommentsFailsWhenInvalid(t *testing.T) {
+	repository := initAgentRepository(t)
+	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
+	directory := t.TempDir()
+	bundlePath := filepath.Join(directory, "bundle.json")
+	if err := runAgentWithWriter([]string{
+		"prepare", "--repo", repository, "--output", bundlePath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("prepare bundle: %v", err)
+	}
+	bundleFile, err := os.Open(bundlePath)
+	if err != nil {
+		t.Fatalf("open bundle: %v", err)
+	}
+	bundle, loadErr := reviewbundle.LoadBundle(bundleFile)
+	closeErr := bundleFile.Close()
+	if loadErr != nil {
+		t.Fatalf("load bundle: %v", loadErr)
+	}
+	if closeErr != nil {
+		t.Fatalf("close bundle: %v", closeErr)
+	}
+	commentsPath := filepath.Join(directory, "comments.json")
+	if err := os.WriteFile(commentsPath, []byte(fmt.Sprintf(`{
+  "schema_version": "codex-review-comments/v1",
+  "bundle_id": %q,
+  "summary": {"files_reviewed": 2, "issues_found": 1},
+  "comments": [{
+    "path": "main.go",
+    "start_line": 9,
+    "end_line": 9,
+    "priority": "high",
+    "category": "bug",
+    "title": "summary mismatch",
+    "content": "summary mismatch",
+    "recommendation": "fix",
+    "confidence": 1
+  }]
+}`, bundle.BundleID)), 0o600); err != nil {
+		t.Fatalf("write comments: %v", err)
+	}
+
+	var output bytes.Buffer
+	err = runAgentWithWriter([]string{
+		"validate-comments",
+		"--repo", repository,
+		"--bundle", bundlePath,
+		"--comments", commentsPath,
+	}, &output)
+	if err == nil {
+		t.Fatalf("validate comments: nil, want validation failure exit")
+	}
+	if _, ok := err.(validationFailedError); !ok {
+		t.Fatalf("error = %T(%v), want validationFailedError", err, err)
+	}
+	if !strings.Contains(output.String(), `"valid": false`) {
+		t.Fatalf("expected invalid validation JSON:\n%s", output.String())
+	}
+}
+
+func TestCodexReportRequiresValidation(t *testing.T) {
+	repository := initAgentRepository(t)
+	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
+	directory := t.TempDir()
+	bundlePath := filepath.Join(directory, "bundle.json")
+	if err := runAgentWithWriter([]string{
+		"prepare", "--repo", repository, "--output", bundlePath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("prepare bundle: %v", err)
+	}
+	bundleFile, err := os.Open(bundlePath)
+	if err != nil {
+		t.Fatalf("open bundle: %v", err)
+	}
+	bundle, loadErr := reviewbundle.LoadBundle(bundleFile)
+	closeErr := bundleFile.Close()
+	if loadErr != nil {
+		t.Fatalf("load bundle: %v", loadErr)
+	}
+	if closeErr != nil {
+		t.Fatalf("close bundle: %v", closeErr)
+	}
+	commentsPath := filepath.Join(directory, "comments.json")
+	writeAgentJSON(t, commentsPath, reviewbundle.Comments{
+		SchemaVersion: reviewbundle.CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       reviewbundle.CommentsSummary{FilesReviewed: 1, IssuesFound: 0},
+		Comments:      []reviewbundle.ReviewComment{},
+	})
+
+	err = runAgentWithWriter([]string{
+		"report",
+		"--bundle", bundlePath,
+		"--comments", commentsPath,
+		"--format", "markdown",
+	}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "--validation is required") {
+		t.Fatalf("error = %v, want missing validation requirement", err)
 	}
 }
 
