@@ -48,6 +48,13 @@ func runAgentReportForCommand(command string, args []string, writer io.Writer) e
 	if err != nil {
 		return err
 	}
+	if options.outputPath != "" {
+		if err := writePrivateFile(options.outputPath, report); err != nil {
+			return err
+		}
+	} else if _, err := writer.Write(report); err != nil {
+		return err
+	}
 	if options.sessionID != "" {
 		repoDir, _, resolveErr := resolveWorkingDir(options.repoDir, false)
 		if resolveErr != nil {
@@ -78,11 +85,7 @@ func runAgentReportForCommand(command string, args []string, writer io.Writer) e
 			return err
 		}
 	}
-	if options.outputPath != "" {
-		return writePrivateFile(options.outputPath, report)
-	}
-	_, err = writer.Write(report)
-	return err
+	return nil
 }
 
 func parseAgentReportFlags(command string, args []string) (agentReportOptions, error) {
