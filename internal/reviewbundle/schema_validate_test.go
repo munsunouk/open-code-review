@@ -50,3 +50,27 @@ func TestPreparedBundlePassesEmbeddedSchema(t *testing.T) {
 		t.Fatalf("validateBundleDocument() error = %v", err)
 	}
 }
+
+func TestPreparedManifestPassesEmbeddedSchema(t *testing.T) {
+	bundle := validIdentifiedBundle(t)
+	manifest := &ScanManifest{
+		SchemaVersion:   ScanManifestSchemaVersion,
+		ManifestID:      "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+		Root:            "/tmp/repo",
+		TargetHash:      "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		BatchStrategy:   "none",
+		BatchSize:       1,
+		EstimatedTokens: 0,
+		Summary:         bundle.Summary,
+		Partial:         false,
+		SkippedFiles:    []ScanSkippedFile{},
+		Bundles:         []Bundle{*bundle},
+	}
+	encoded, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+	if err := validateManifestDocument(encoded); err != nil {
+		t.Fatalf("validateManifestDocument() error = %v", err)
+	}
+}
