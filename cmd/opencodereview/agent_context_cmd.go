@@ -59,6 +59,9 @@ func runAgentContextForCommand(
 		if manifestErr != nil {
 			return fmt.Errorf("open bundle: %w", manifestErr)
 		}
+		if options.bundleIndex < 0 && len(manifest.Bundles) == 1 {
+			options.bundleIndex = 0
+		}
 		if options.bundleIndex < 0 || options.bundleIndex >= len(manifest.Bundles) {
 			return fmt.Errorf("--bundle-index must select one of %d scan bundles", len(manifest.Bundles))
 		}

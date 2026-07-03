@@ -566,7 +566,6 @@ func TestAgentPrepareScanWorksWithoutGitOrLLMConfiguration(t *testing.T) {
 		"context", "read",
 		"--repo", directory,
 		"--bundle", manifestPath,
-		"--bundle-index", "0",
 		"--path", "main.go",
 	}, &output)
 	if err != nil {
