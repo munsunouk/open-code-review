@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -72,7 +73,11 @@ func ensureMetrics() {
 	checkMetricErr(err)
 }
 
-func checkMetricErr(err error) {}
+func checkMetricErr(err error) {
+	if err != nil {
+		log.Printf("telemetry: metric registration failed: %v", err)
+	}
+}
 
 func RecordReviewDuration(ctx context.Context, dur time.Duration) {
 	if !IsEnabled() {
