@@ -132,32 +132,24 @@ func (p *Provider) EnumerateDetailed(
 			skipped = append(skipped, SkippedItem{Path: rel, Reason: "file_size"})
 			continue
 		}
-		binary, err := isBinaryFile(full)
+		binary, content, lineCount, err := readRegularFile(full)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[ocr] WARNING: cannot sniff %s: %v\n", rel, err)
+			fmt.Fprintf(os.Stderr, "[ocr] WARNING: cannot read %s: %v\n", rel, err)
 			skipped = append(skipped, SkippedItem{Path: rel, Reason: "unreadable"})
 			continue
 		}
 		if binary {
-			// Emit placeholder so preview can display [B], but do not
-			// read the file body — saves memory on large binaries.
 			out = append(out, model.ScanItem{
 				Path:     rel,
 				IsBinary: true,
 			})
 			continue
 		}
-		content, err := os.ReadFile(full)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "[ocr] WARNING: cannot read %s: %v\n", rel, err)
-			skipped = append(skipped, SkippedItem{Path: rel, Reason: "unreadable"})
-			continue
-		}
 		out = append(out, model.ScanItem{
 			Path:      rel,
 			Content:   string(content),
 			IsBinary:  false,
-			LineCount: countLines(content),
+			LineCount: lineCount,
 		})
 	}
 	return out, skipped, nil
@@ -314,6 +306,34 @@ func countLines(content []byte) int {
 		n++
 	}
 	return n
+}
+
+// readRegularFile opens path once, sniffs for binary content, and reads the body.
+func readRegularFile(path string) (binary bool, content []byte, lineCount int, err error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return false, nil, 0, err
+	}
+	defer file.Close()
+	sniff := make([]byte, binarySniffWindow)
+	read, err := io.ReadFull(file, sniff)
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return false, nil, 0, err
+	}
+	if bytes.IndexByte(sniff[:read], 0) >= 0 {
+		return true, nil, 0, nil
+	}
+	var body bytes.Buffer
+	if read > 0 {
+		if _, err := body.Write(sniff[:read]); err != nil {
+			return false, nil, 0, err
+		}
+	}
+	if _, err := io.Copy(&body, file); err != nil {
+		return false, nil, 0, err
+	}
+	content = body.Bytes()
+	return false, content, countLines(content), nil
 }
 
 // isBinaryFile reads up to binarySniffWindow bytes from path and reports

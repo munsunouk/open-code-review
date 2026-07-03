@@ -336,7 +336,7 @@ func executeAgentScanPrepare(
 	writer io.Writer,
 ) error {
 	started := time.Now()
-	manifest, encoded, err := reviewbundle.PrepareScan(ctx, reviewbundle.ScanOptions{
+	scanOptions := reviewbundle.ScanOptions{
 		RepoDir:          repoDir,
 		Paths:            splitPaths(options.paths),
 		Resolver:         resolver,
@@ -347,7 +347,20 @@ func executeAgentScanPrepare(
 		MaxBundleSize:    int64(options.maxBundleBytes),
 		BatchStrategy:    options.batchStrategy,
 		BatchSize:        options.batchSize,
-	})
+	}
+	var outputFile *os.File
+	if options.outputPath != "" && !options.preview {
+		file, err := os.OpenFile(options.outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		if err != nil {
+			return fmt.Errorf("open scan manifest output %s: %w", options.outputPath, err)
+		}
+		outputFile = file
+		scanOptions.EncodedWriter = file
+	}
+	manifest, encoded, err := reviewbundle.PrepareScan(ctx, scanOptions)
+	if closeErr := closeAgentOutputFile(outputFile); closeErr != nil && err == nil {
+		err = closeErr
+	}
 	if err != nil {
 		return fmt.Errorf("prepare agent scan manifest: %w", err)
 	}
@@ -382,10 +395,23 @@ func executeAgentScanPrepare(
 		return nil
 	}
 	if options.outputPath != "" {
+		if outputFile != nil {
+			return nil
+		}
 		return writePrivateFile(options.outputPath, encoded)
+	}
+	if len(encoded) == 0 {
+		return fmt.Errorf("scan manifest encoding is empty")
 	}
 	_, err = writer.Write(append(encoded, '\n'))
 	return err
+}
+
+func closeAgentOutputFile(file *os.File) error {
+	if file == nil {
+		return nil
+	}
+	return file.Close()
 }
 
 func recordAgentEvent(
