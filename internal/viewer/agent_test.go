@@ -73,6 +73,27 @@ func TestViewerLoadsAgentSession(t *testing.T) {
 	}
 }
 
+func TestAgentEventValidationLabelDistinguishesFalse(t *testing.T) {
+	valid := true
+	invalid := false
+	tests := []struct {
+		name  string
+		event AgentEvent
+		want  string
+	}{
+		{name: "missing", event: AgentEvent{}, want: "-"},
+		{name: "valid", event: AgentEvent{ValidationValid: &valid}, want: "yes"},
+		{name: "invalid", event: AgentEvent{ValidationValid: &invalid}, want: "no"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.event.ValidationLabel(); got != tc.want {
+				t.Fatalf("ValidationLabel() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestViewerTemplateDistinguishesAgentControlPlaneAndUnavailableTokens(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join("templates", "session.html"))
 	if err != nil {
@@ -86,6 +107,7 @@ func TestViewerTemplateDistinguishesAgentControlPlaneAndUnavailableTokens(t *tes
 		"Agent workflow events",
 		"Findings",
 		"Context",
+		"ValidationLabel",
 	} {
 		if !strings.Contains(text, fragment) {
 			t.Errorf("session template missing %q", fragment)

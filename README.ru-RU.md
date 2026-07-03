@@ -393,7 +393,7 @@ curl -o ~/.claude/commands/open-code-review.md \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/plugins/open-code-review/commands/review.md
 ```
 
-> **Требование**: для всех способов интеграции необходим установленный CLI `ocr` и настроенная LLM. См. разделы [Установка](#установка) и [Настройте LLM](#быстрый-старт) выше.
+> **Требование**: для всех способов интеграции необходим установленный CLI `ocr`. Native `ocr review` и `ocr scan` дополнительно требуют настроенную LLM. См. разделы [Установка](#установка) и [Настройте LLM](#быстрый-старт) выше.
 
 ### Интеграция с CI/CD
 

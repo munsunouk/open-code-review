@@ -119,6 +119,25 @@ func TestAgentRecorderFinalizeIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestAgentRecorderDoesNotAppendEventsAfterFinalize(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	repository := t.TempDir()
+	recorder, err := OpenAgentRecorder(repository, "run-ended", "sha256:bundle")
+	if err != nil {
+		t.Fatalf("OpenAgentRecorder() error = %v", err)
+	}
+	if err := recorder.Finalize("sha256:bundle", AgentEvent{FilesReviewed: []string{"main.go"}}); err != nil {
+		t.Fatalf("Finalize() error = %v", err)
+	}
+	if err := recorder.Record("context.read", "sha256:bundle", AgentEvent{ContextCalls: 1}); err != nil {
+		t.Fatalf("Record() error = %v", err)
+	}
+	records := readAgentRecords(t, recorder.Path())
+	if records[len(records)-1]["type"] != "session_end" {
+		t.Fatalf("last record = %+v, want session_end", records[len(records)-1])
+	}
+}
+
 func TestAgentRecorderRecoversOrphanedEmptySessionFile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -144,8 +163,10 @@ func TestAgentRecorderRecoversOrphanedEmptySessionFile(t *testing.T) {
 
 func TestAgentRecorderRejectsInvalidSessionID(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if _, err := OpenAgentRecorder(t.TempDir(), "../bad", "sha256:bundle"); err == nil {
-		t.Fatal("OpenAgentRecorder() error = nil, want invalid session ID")
+	for _, runID := range []string{"../bad", "run..bad"} {
+		if _, err := OpenAgentRecorder(t.TempDir(), runID, "sha256:bundle"); err == nil {
+			t.Fatalf("OpenAgentRecorder(%q) error = nil, want invalid session ID", runID)
+		}
 	}
 }
 

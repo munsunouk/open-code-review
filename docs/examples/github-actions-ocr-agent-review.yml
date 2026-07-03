@@ -23,7 +23,9 @@ jobs:
         run: git fetch origin "${{ github.base_ref }}"
 
       - name: Install OCR
-        run: go install ./cmd/opencodereview
+        run: |
+          mkdir -p "$(go env GOPATH)/bin"
+          go build -o "$(go env GOPATH)/bin/ocr" ./cmd/opencodereview
 
       - name: Prepare bundle
         run: |

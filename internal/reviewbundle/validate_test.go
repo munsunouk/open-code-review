@@ -216,7 +216,7 @@ func TestValidateCommentsRejectsProtocolAndEvidenceErrors(t *testing.T) {
 	comments := &Comments{
 		SchemaVersion: CommentsSchemaVersion,
 		BundleID:      bundle.BundleID,
-		Summary:       CommentsSummary{FilesReviewed: 1, IssuesFound: 4},
+		Summary:       CommentsSummary{FilesReviewed: 1, IssuesFound: 5},
 		Comments: []ReviewComment{
 			{
 				Path:           "../secret.go",
@@ -262,6 +262,17 @@ func TestValidateCommentsRejectsProtocolAndEvidenceErrors(t *testing.T) {
 				Recommendation: "fix",
 				Confidence:     2,
 			},
+			{
+				Path:           "./main.go",
+				StartLine:      3,
+				EndLine:        3,
+				Priority:       "medium",
+				Category:       "bug",
+				Title:          "canonical",
+				Content:        "canonical",
+				Recommendation: "fix",
+				Confidence:     0.8,
+			},
 		},
 	}
 
@@ -275,6 +286,7 @@ func TestValidateCommentsRejectsProtocolAndEvidenceErrors(t *testing.T) {
 	assertValidationCode(t, result.Errors, "invalid_priority")
 	assertValidationCode(t, result.Errors, "invalid_category")
 	assertValidationCode(t, result.Errors, "invalid_confidence")
+	assertValidationCode(t, result.Errors, "non_canonical_path")
 }
 
 func TestValidateCommentsWarnsOutsideChangedHunk(t *testing.T) {

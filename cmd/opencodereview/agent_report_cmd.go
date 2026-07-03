@@ -184,6 +184,16 @@ func loadValidationResult(path string) (*reviewbundle.ValidationResult, error) {
 	if err := decoder.Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode validation result: %w", err)
 	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return nil, fmt.Errorf("decode validation result: multiple JSON values")
+		}
+		return nil, fmt.Errorf("decode validation result: %w", err)
+	}
+	if result.SchemaVersion != reviewbundle.ValidationSchemaVersion {
+		return nil, fmt.Errorf("invalid validation schema_version %q", result.SchemaVersion)
+	}
 	return &result, nil
 }
 

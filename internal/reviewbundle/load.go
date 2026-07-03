@@ -53,6 +53,7 @@ func LoadComments(reader io.Reader) (*Comments, error) {
 	if err := decodeStrict(bytes.NewReader(data), &comments); err != nil {
 		return nil, fmt.Errorf("invalid comments schema: %w", err)
 	}
+	comments.sourceSHA256 = hashFields(data)
 	if err := validateCommentsDocument(data); err != nil {
 		return nil, err
 	}

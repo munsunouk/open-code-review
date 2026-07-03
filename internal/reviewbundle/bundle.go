@@ -9,6 +9,8 @@ const (
 	BundleSchemaVersion = "agent-review-bundle/v1"
 	// CommentsSchemaVersion identifies the external review comments protocol.
 	CommentsSchemaVersion = "agent-review-comments/v1"
+	// ValidationSchemaVersion identifies validated external comments.
+	ValidationSchemaVersion = "agent-review-validation/v1"
 )
 
 // TargetMode identifies how the reviewed Git change is selected.
@@ -137,6 +139,7 @@ type Comments struct {
 	Summary       CommentsSummary  `json:"summary"`
 	Comments      []ReviewComment  `json:"comments"`
 	Warnings      []ProtocolNotice `json:"warnings,omitempty"`
+	sourceSHA256  string
 }
 
 // CommentsSummary reports the external review result size.

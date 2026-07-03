@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
@@ -37,8 +38,8 @@ type AgentRecorder struct {
 
 // OpenAgentRecorder opens or resumes one explicitly requested run ID.
 func OpenAgentRecorder(repoDir, runID, bundleID string) (*AgentRecorder, error) {
-	if runID == "" || !safeAgentRunID.MatchString(runID) {
-		return nil, fmt.Errorf("session ID must contain only letters, digits, dot, underscore, or dash")
+	if runID == "" || strings.Contains(runID, "..") || !safeAgentRunID.MatchString(runID) {
+		return nil, fmt.Errorf("session ID must contain only letters, digits, dot, underscore, or dash and cannot contain '..'")
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -132,6 +133,9 @@ func (recorder *AgentRecorder) Path() string {
 
 // Record appends one correlated host-agent workflow event.
 func (recorder *AgentRecorder) Record(event string, bundleID string, details AgentEvent) error {
+	if agentSessionHasEnd(recorder.path) {
+		return nil
+	}
 	record := agentEventRecord(recorder, "agent_event", bundleID, details)
 	record["event"] = event
 	return recorder.write(record)

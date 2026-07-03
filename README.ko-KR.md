@@ -393,7 +393,7 @@ curl -o ~/.claude/commands/open-code-review.md \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/plugins/open-code-review/commands/review.md
 ```
 
-> **전제 조건**: 모든 통합 방식은 `ocr` CLI가 설치되어 있고 LLM이 설정되어 있어야 합니다. 위의 [설치](#설치)와 [LLM 설정](#1-llm-설정)을 참고하세요.
+> **전제 조건**: 모든 통합 방식은 `ocr` CLI 설치가 필요합니다. native `ocr review`/`ocr scan`은 추가로 LLM 설정이 필요합니다. 위의 [설치](#설치)와 [LLM 설정](#1-llm-설정)을 참고하세요.
 
 ### CI/CD 통합
 

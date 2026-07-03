@@ -225,6 +225,16 @@ type AgentEvent struct {
 	ValidationValid *bool
 }
 
+func (event AgentEvent) ValidationLabel() string {
+	if event.ValidationValid == nil {
+		return "-"
+	}
+	if *event.ValidationValid {
+		return "yes"
+	}
+	return "no"
+}
+
 // TokenUsageSummary aggregates token counts across the session.
 type TokenUsageSummary struct {
 	TotalPromptTokens     int

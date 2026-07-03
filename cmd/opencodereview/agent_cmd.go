@@ -225,6 +225,10 @@ func executeAgentPrepare(
 		)
 	}
 
+	maxBundleSize := int64(options.maxBundleBytes)
+	if options.preview {
+		maxBundleSize = 1 << 62
+	}
 	bundle, encoded, err := reviewbundle.Prepare(ctx, reviewbundle.PrepareOptions{
 		RepoDir: repoDir,
 		Target: reviewbundle.TargetSpec{
@@ -235,7 +239,7 @@ func executeAgentPrepare(
 		Resolver:      resolver,
 		FileFilter:    fileFilter,
 		GitRunner:     gitcmd.New(options.maxGitProcs),
-		MaxBundleSize: int64(options.maxBundleBytes),
+		MaxBundleSize: maxBundleSize,
 	})
 	if err != nil {
 		return fmt.Errorf("prepare agent review bundle: %w", err)

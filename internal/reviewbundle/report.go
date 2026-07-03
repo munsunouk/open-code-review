@@ -22,14 +22,23 @@ func RenderReport(bundle *Bundle, comments *Comments, options ReportOptions) ([]
 	if comments.BundleID != bundle.BundleID {
 		return nil, fmt.Errorf("bundle_id mismatch")
 	}
-	if options.Validation != nil && options.Validation.BundleID != bundle.BundleID {
-		return nil, fmt.Errorf("validation bundle_id mismatch")
-	}
-	if options.Validation != nil && !options.Validation.Valid {
-		return nil, fmt.Errorf(
-			"validation failed with %d error(s); resolve them before rendering a report",
-			len(options.Validation.Errors),
-		)
+	if options.Validation != nil {
+		if options.Validation.SchemaVersion != ValidationSchemaVersion {
+			return nil, fmt.Errorf("validation schema_version mismatch")
+		}
+		if options.Validation.BundleID != bundle.BundleID {
+			return nil, fmt.Errorf("validation bundle_id mismatch")
+		}
+		if !options.Validation.Valid {
+			return nil, fmt.Errorf(
+				"validation failed with %d error(s); resolve them before rendering a report",
+				len(options.Validation.Errors),
+			)
+		}
+		if options.Validation.CommentsSHA256 == "" ||
+			options.Validation.CommentsSHA256 != computeCommentsSHA256(comments) {
+			return nil, fmt.Errorf("validation comments_sha256 mismatch")
+		}
 	}
 	sorted := sortedComments(comments)
 	switch options.Format {
@@ -177,7 +186,7 @@ func writeMarkdownNotices(output *bytes.Buffer, title string, notices []Protocol
 	fmt.Fprintln(output)
 	fmt.Fprintf(output, "## %s\n", title)
 	for _, notice := range notices {
-		fmt.Fprintf(output, "\n- `%s`: %s\n", notice.Code, notice.Message)
+		fmt.Fprintf(output, "\n- `%s`: %s\n", notice.Code, escapeMarkdownBody(notice.Message))
 	}
 }
 

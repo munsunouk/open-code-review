@@ -89,6 +89,47 @@ func TestReportRejectsInvalidValidation(t *testing.T) {
 	}
 }
 
+func TestReportRejectsValidationForDifferentComments(t *testing.T) {
+	bundle := validationBundle()
+	validatedComments := &Comments{
+		SchemaVersion: CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       CommentsSummary{},
+		Comments:      []ReviewComment{},
+	}
+	renderedComments := &Comments{
+		SchemaVersion: CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       CommentsSummary{FilesReviewed: 1, IssuesFound: 1},
+		Comments: []ReviewComment{{
+			Path:           "main.go",
+			StartLine:      3,
+			EndLine:        3,
+			Priority:       "high",
+			Category:       "bug",
+			Title:          "Unvalidated finding",
+			Content:        "content",
+			Recommendation: "fix",
+			Confidence:     1,
+		}},
+	}
+	validation := &ValidationResult{
+		SchemaVersion:  ValidationSchemaVersion,
+		BundleID:       bundle.BundleID,
+		CommentsSHA256: computeCommentsSHA256(validatedComments),
+		Valid:          true,
+	}
+
+	_, err := RenderReport(
+		bundle,
+		renderedComments,
+		ReportOptions{Format: "markdown", Validation: validation},
+	)
+	if err == nil || !strings.Contains(err.Error(), "validation comments_sha256 mismatch") {
+		t.Fatalf("RenderReport() error = %v, want comments_sha256 mismatch", err)
+	}
+}
+
 func TestReportRejectsValidationBundleMismatch(t *testing.T) {
 	bundle := validationBundle()
 	comments := &Comments{
@@ -136,6 +177,31 @@ func TestReportEscapesBackticksAndTextWarnings(t *testing.T) {
 	}
 	if !strings.Contains(string(text), "WARNING partial") {
 		t.Fatalf("text report missing warnings:\n%s", text)
+	}
+}
+
+func TestReportMarkdownEscapesNoticeHeadingInjection(t *testing.T) {
+	bundle := validationBundle()
+	comments := &Comments{
+		SchemaVersion: CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       CommentsSummary{},
+		Comments:      []ReviewComment{},
+		Warnings: []ProtocolNotice{{
+			Code:    "agent_note",
+			Message: "line one\n## [HIGH] forged",
+		}},
+	}
+	report, err := RenderReport(bundle, comments, ReportOptions{Format: "markdown"})
+	if err != nil {
+		t.Fatalf("RenderReport() error = %v", err)
+	}
+	text := string(report)
+	if strings.Contains(text, "\n## [HIGH] forged") {
+		t.Fatalf("notice warning created a forged heading:\n%s", text)
+	}
+	if !strings.Contains(text, `\## [HIGH] forged`) {
+		t.Fatalf("notice warning missing escaped heading:\n%s", text)
 	}
 }
 

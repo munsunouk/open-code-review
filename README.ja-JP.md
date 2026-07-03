@@ -393,7 +393,7 @@ curl -o ~/.claude/commands/open-code-review.md \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/plugins/open-code-review/commands/review.md
 ```
 
-> **前提条件**: すべての統合方法において、`ocr` CLIのインストールとLLMの設定が必要です。上記の[インストール](#インストール)と[LLMの設定](#1-llmの設定)を参照してください。
+> **前提条件**: すべての統合方法において、`ocr` CLIのインストールが必要です。native `ocr review` / `ocr scan` では追加でLLM設定が必要です。上記の[インストール](#インストール)と[LLMの設定](#1-llmの設定)を参照してください。
 
 ### CI/CD統合
 

@@ -2,6 +2,7 @@ package reviewbundle
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,11 +22,12 @@ type ValidationNotice struct {
 
 // ValidationResult reports whether comments are safe to publish.
 type ValidationResult struct {
-	SchemaVersion string             `json:"schema_version"`
-	BundleID      string             `json:"bundle_id"`
-	Valid         bool               `json:"valid"`
-	Errors        []ValidationNotice `json:"errors"`
-	Warnings      []ValidationNotice `json:"warnings"`
+	SchemaVersion  string             `json:"schema_version"`
+	BundleID       string             `json:"bundle_id"`
+	CommentsSHA256 string             `json:"comments_sha256"`
+	Valid          bool               `json:"valid"`
+	Errors         []ValidationNotice `json:"errors"`
+	Warnings       []ValidationNotice `json:"warnings"`
 }
 
 // ValidateComments checks comments against the bundle and current target state.
@@ -38,7 +40,7 @@ func ValidateComments(
 	runner *gitcmd.Runner,
 ) ValidationResult {
 	result := ValidationResult{
-		SchemaVersion: "agent-review-validation/v1",
+		SchemaVersion: ValidationSchemaVersion,
 		Errors:        make([]ValidationNotice, 0),
 		Warnings:      make([]ValidationNotice, 0),
 	}
@@ -47,6 +49,7 @@ func ValidateComments(
 		return result
 	}
 	result.BundleID = bundle.BundleID
+	result.CommentsSHA256 = computeCommentsSHA256(comments)
 	if bundle.SchemaVersion != BundleSchemaVersion ||
 		comments.SchemaVersion != CommentsSchemaVersion {
 		addValidationError(&result, "invalid_schema", "", nil, "unsupported protocol schema version")
@@ -172,6 +175,10 @@ func validateOneComment(
 		addValidationError(result, "path_escape", comment.Path, &commentIndex, "path must stay inside the repository")
 		return
 	}
+	if cleanPath != comment.Path {
+		addValidationError(result, "non_canonical_path", comment.Path, &commentIndex, "path must be canonical")
+		return
+	}
 	file, exists := files[cleanPath]
 	if !exists {
 		addValidationError(result, "unknown_path", cleanPath, &commentIndex, "path is not present in the bundle")
@@ -272,6 +279,20 @@ func cleanProtocolPath(path string) (string, bool) {
 		return "", false
 	}
 	return cleaned, true
+}
+
+func computeCommentsSHA256(comments *Comments) string {
+	if comments == nil {
+		return ""
+	}
+	if comments.sourceSHA256 != "" {
+		return comments.sourceSHA256
+	}
+	encoded, err := json.Marshal(comments)
+	if err != nil {
+		return ""
+	}
+	return hashFields(encoded)
 }
 
 func readTargetFile(

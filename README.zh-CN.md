@@ -391,7 +391,7 @@ curl -o ~/.claude/commands/open-code-review.md \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/plugins/open-code-review/commands/review.md
 ```
 
-> **前置条件**：所有集成方式都需要安装 `ocr` CLI 并配置 LLM。参见上方[安装](#安装)和[配置 LLM](#1-配置-llm)。
+> **前置条件**：所有集成方式都需要安装 `ocr` CLI。native `ocr review` 和 `ocr scan` 额外需要配置 LLM。参见上方[安装](#安装)和[配置 LLM](#1-配置-llm)。
 
 ### CI/CD 集成
 

@@ -113,7 +113,7 @@
             <td>{{if .Warnings}}{{.Warnings}}{{else}}-{{end}}</td>
             <td>{{if .ContextCalls}}{{.ContextCalls}}{{else}}-{{end}}</td>
             <td>{{if .Partial}}yes{{else}}-{{end}}</td>
-            <td>{{if .ValidationValid}}{{if .ValidationValid}}yes{{else}}no{{end}}{{else}}-{{end}}</td>
+            <td>{{.ValidationLabel}}</td>
             <td>{{if .DurationMS}}{{.DurationMS}} ms{{else}}-{{end}}</td>
             <td>{{if .Error}}{{.Error}}{{else}}-{{end}}</td>
         </tr>

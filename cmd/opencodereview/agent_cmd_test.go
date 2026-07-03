@@ -88,6 +88,26 @@ func TestAgentPreparePreviewOmitsPatchBodies(t *testing.T) {
 	}
 }
 
+func TestAgentPreparePreviewIgnoresBundleSizeLimit(t *testing.T) {
+	repository := initAgentRepository(t)
+	writeAgentFile(t, repository, "main.go", "package sample\n// "+strings.Repeat("x", 1024)+"\n")
+
+	var output bytes.Buffer
+	err := runAgentWithWriter([]string{
+		"prepare",
+		"--repo", repository,
+		"--preview",
+		"--max-bundle-bytes", "128",
+	}, &output)
+	if err != nil {
+		t.Fatalf("runAgentWithWriter() error = %v", err)
+	}
+	if !strings.Contains(output.String(), "Agent review bundle preview") ||
+		!strings.Contains(output.String(), "main.go") {
+		t.Fatalf("preview output = %q", output.String())
+	}
+}
+
 func TestAgentPrepareRejectsConflictingTargets(t *testing.T) {
 	var output bytes.Buffer
 	err := runAgentWithWriter(
@@ -258,6 +278,9 @@ func TestAgentValidateCommentsEmitsStructuredResult(t *testing.T) {
 	if !result.Valid || result.BundleID != bundle.BundleID {
 		t.Fatalf("validation = %+v, want valid result", result)
 	}
+	if result.CommentsSHA256 == "" {
+		t.Fatalf("validation comments hash is empty: %+v", result)
+	}
 }
 
 func TestAgentReportEmitsMarkdown(t *testing.T) {
@@ -291,13 +314,15 @@ func TestAgentReportEmitsMarkdown(t *testing.T) {
 	commentsPath := filepath.Join(directory, "comments.json")
 	writeAgentJSON(t, commentsPath, comments)
 	validationPath := filepath.Join(directory, "validation.json")
-	writeAgentJSON(t, validationPath, reviewbundle.ValidationResult{
-		SchemaVersion: "agent-review-validation/v1",
-		BundleID:      bundle.BundleID,
-		Valid:         true,
-		Errors:        []reviewbundle.ValidationNotice{},
-		Warnings:      []reviewbundle.ValidationNotice{},
-	})
+	if err := runAgentWithWriter([]string{
+		"validate-comments",
+		"--repo", repository,
+		"--bundle", bundlePath,
+		"--comments", commentsPath,
+		"--output", validationPath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("validate comments: %v", err)
+	}
 
 	var output bytes.Buffer
 	err = runAgentWithWriter([]string{
@@ -313,6 +338,67 @@ func TestAgentReportEmitsMarkdown(t *testing.T) {
 	if !strings.Contains(output.String(), "# Agent Code Review") ||
 		!strings.Contains(output.String(), "No findings.") {
 		t.Fatalf("unexpected report:\n%s", output.String())
+	}
+}
+
+func TestAgentReportRejectsReformattedValidatedComments(t *testing.T) {
+	repository := initAgentRepository(t)
+	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
+	directory := t.TempDir()
+	bundlePath := filepath.Join(directory, "bundle.json")
+	if err := runAgentWithWriter([]string{
+		"prepare", "--repo", repository, "--output", bundlePath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("prepare bundle: %v", err)
+	}
+	bundleFile, err := os.Open(bundlePath)
+	if err != nil {
+		t.Fatalf("open bundle: %v", err)
+	}
+	bundle, loadErr := reviewbundle.LoadBundle(bundleFile)
+	closeErr := bundleFile.Close()
+	if loadErr != nil {
+		t.Fatalf("load bundle: %v", loadErr)
+	}
+	if closeErr != nil {
+		t.Fatalf("close bundle: %v", closeErr)
+	}
+	comments := reviewbundle.Comments{
+		SchemaVersion: reviewbundle.CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       reviewbundle.CommentsSummary{FilesReviewed: 1, IssuesFound: 0},
+		Comments:      []reviewbundle.ReviewComment{},
+	}
+	commentsPath := filepath.Join(directory, "comments.json")
+	writeAgentJSON(t, commentsPath, comments)
+	validationPath := filepath.Join(directory, "validation.json")
+	if err := runAgentWithWriter([]string{
+		"validate-comments",
+		"--repo", repository,
+		"--bundle", bundlePath,
+		"--comments", commentsPath,
+		"--output", validationPath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("validate comments: %v", err)
+	}
+	reformatted, err := json.MarshalIndent(comments, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal comments: %v", err)
+	}
+	reformattedPath := filepath.Join(directory, "comments-pretty.json")
+	if err := os.WriteFile(reformattedPath, reformatted, 0o600); err != nil {
+		t.Fatalf("write reformatted comments: %v", err)
+	}
+
+	err = runAgentWithWriter([]string{
+		"report",
+		"--bundle", bundlePath,
+		"--comments", reformattedPath,
+		"--validation", validationPath,
+		"--format", "markdown",
+	}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "comments_sha256 mismatch") {
+		t.Fatalf("report error = %v, want comments_sha256 mismatch", err)
 	}
 }
 

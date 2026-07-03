@@ -402,7 +402,7 @@ curl -o ~/.claude/commands/open-code-review.md \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/plugins/open-code-review/commands/review.md
 ```
 
-> **Prerequisite**: All integration methods require the `ocr` CLI to be installed and an LLM configured. See [Install](#install) and [Configure LLM](#1-configure-llm) above.
+> **Prerequisite**: All integration methods require the `ocr` CLI to be installed. Native `ocr review` and `ocr scan` additionally require an LLM configuration. See [Install](#install) and [Configure LLM](#1-configure-llm) above.
 
 ### CI/CD Integration
 

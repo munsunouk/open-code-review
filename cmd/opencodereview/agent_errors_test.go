@@ -59,6 +59,46 @@ func TestLoadValidationResultRejectsUnknownFields(t *testing.T) {
 	}
 }
 
+func TestLoadValidationResultRejectsInvalidSchemaAndTrailingJSON(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "missing schema",
+			body: `{
+				"bundle_id":"sha256:test",
+				"comments_sha256":"sha256:comments",
+				"valid":true
+			}`,
+			want: "schema_version",
+		},
+		{
+			name: "trailing json",
+			body: `{
+				"schema_version":"agent-review-validation/v1",
+				"bundle_id":"sha256:test",
+				"comments_sha256":"sha256:comments",
+				"valid":true
+			} {"valid":true}`,
+			want: "multiple JSON values",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "validation.json")
+			if err := os.WriteFile(path, []byte(tc.body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := loadValidationResult(path)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("loadValidationResult() error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseAgentReportAndValidateFlagsRejectBadValues(t *testing.T) {
 	if _, err := parseAgentReportFlags("agent", []string{
 		"--bundle", "bundle.json",
