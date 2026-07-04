@@ -124,6 +124,15 @@ func getHeadCommit(t *testing.T, dir string) string {
 	return strings.TrimSpace(string(out))
 }
 
+func runCodeSearchGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
 func TestGitGrep_WorkspaceMode_Found(t *testing.T) {
 	dir := setupTestRepo(t)
 	p := NewCodeSearch(&FileReader{RepoDir: dir, Ref: "", Mode: ModeWorkspace})
@@ -133,6 +142,26 @@ func TestGitGrep_WorkspaceMode_Found(t *testing.T) {
 	}
 	if !strings.Contains(result, "hello.go") {
 		t.Errorf("expected hello.go in result, got: %s", result)
+	}
+}
+
+func TestGitGrep_WorkspaceMode_ColonPath(t *testing.T) {
+	dir := setupTestRepo(t)
+	path := filepath.Join(dir, "dir", "a:b.go")
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("package main\n\nfunc ColonPath() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	p := NewCodeSearch(&FileReader{RepoDir: dir, Ref: "", Mode: ModeWorkspace})
+	result, err := p.gitGrep(context.Background(), "ColonPath", false, false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result, "dir/a:b.go") || !strings.Contains(result, "ColonPath") {
+		t.Errorf("expected colon path match, got: %s", result)
 	}
 }
 
@@ -196,6 +225,26 @@ func TestGitGrep_CommitMode_WithPathspec(t *testing.T) {
 	}
 	if result2 != "No matches found" {
 		t.Errorf("expected 'No matches found' when pathspec excludes match, got: %s", result2)
+	}
+}
+
+func TestGitGrep_CommitMode_SymbolicRefPreservesSearchBehavior(t *testing.T) {
+	dir := setupTestRepo(t)
+	runCodeSearchGit(t, dir, "checkout", "-b", "feature")
+	if err := os.WriteFile(filepath.Join(dir, "hello.go"), []byte("package main\n\nfunc BranchOnly() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runCodeSearchGit(t, dir, "add", "hello.go")
+	runCodeSearchGit(t, dir, "commit", "-m", "feature")
+	runCodeSearchGit(t, dir, "checkout", "master")
+
+	p := NewCodeSearch(&FileReader{RepoDir: dir, Ref: "feature", Mode: ModeRange})
+	result, err := p.gitGrep(context.Background(), "BranchOnly", false, false, []string{"hello.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result, "hello.go") || !strings.Contains(result, "BranchOnly") {
+		t.Errorf("expected branch ref search result, got: %s", result)
 	}
 }
 
@@ -433,6 +482,20 @@ func TestCodeSearchProvider_Execute_WithFilePatterns(t *testing.T) {
 	}
 }
 
+func TestCodeSearchProvider_Execute_RejectsTraversalPattern(t *testing.T) {
+	p := NewCodeSearch(&FileReader{RepoDir: "/tmp"})
+	got, err := p.Execute(context.Background(), map[string]any{
+		"search_text":   "Hello",
+		"file_patterns": []any{"../pkg"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "Error: file_patterns must not contain .." {
+		t.Errorf("Execute() = %q, want traversal error", got)
+	}
+}
+
 func TestCodeSearchProvider_Execute_CaseSensitive(t *testing.T) {
 	dir := setupTestRepo(t)
 	p := NewCodeSearch(&FileReader{RepoDir: dir, Mode: ModeWorkspace})
@@ -459,6 +522,9 @@ func TestCodeSearchProvider_Execute_PerlRegexp(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if strings.Contains(got, "cannot use Perl-compatible regexes") {
+		t.Skipf("git was built without Perl-compatible regexp support: %s", got)
 	}
 	if !strings.Contains(got, "hello.go") {
 		t.Errorf("expected hello.go in perl regexp result, got: %s", got)

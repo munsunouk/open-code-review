@@ -34,6 +34,9 @@ func (p *CodeSearchProvider) Execute(ctx context.Context, args map[string]any) (
 	var patterns []string
 	for _, item := range filePatternsIface {
 		if s, ok := item.(string); ok && s != "" {
+			if strings.Contains(s, "..") {
+				return "Error: file_patterns must not contain ..", nil
+			}
 			patterns = append(patterns, s)
 		}
 	}
@@ -69,7 +72,7 @@ func (p *CodeSearchProvider) buildGrepArgs(searchText string, caseSensitive bool
 		cmdArgs = append(cmdArgs, "-F")
 	}
 
-	cmdArgs = append(cmdArgs, "-n", "--no-color")
+	cmdArgs = append(cmdArgs, "-n", "-z", "--no-color")
 	cmdArgs = append(cmdArgs, "--max-count", fmt.Sprintf("%d", gitGrepMaxCount))
 
 	cmdArgs = append(cmdArgs, "-e", searchText)
@@ -112,17 +115,32 @@ func (p *CodeSearchProvider) runGitGrep(parentCtx context.Context, cmdArgs []str
 }
 
 func (p *CodeSearchProvider) gitGrep(ctx context.Context, searchText string, caseSensitive bool, usePerlRegexp bool, pathspec []string) (string, error) {
-	cmdArgs := p.buildGrepArgs(searchText, caseSensitive, usePerlRegexp, false, pathspec)
+	searchProvider := p
+	if p.FileReader.Ref != "" {
+		resolvedRef, err := p.resolveGrepRef(ctx)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return "", err
+			}
+			return fmt.Sprintf("Error: invalid git ref %q: %v", p.FileReader.Ref, err), nil
+		}
+		fileReader := *p.FileReader
+		fileReader.Ref = resolvedRef
+		providerCopy := *p
+		providerCopy.FileReader = &fileReader
+		searchProvider = &providerCopy
+	}
 
-	outStr, errStr, err := p.runGitGrep(ctx, cmdArgs)
+	cmdArgs := searchProvider.buildGrepArgs(searchText, caseSensitive, usePerlRegexp, false, pathspec)
+	outStr, errStr, err := searchProvider.runGitGrep(ctx, cmdArgs)
 
 	// Non-git directory: `git grep` exits 128 with "not a git repository".
 	// `ocr scan` supports plain directories, so retry in --no-index mode, which
 	// searches the working tree directly while still honoring .gitignore.
 	// Ref-based search needs a real repo, so it is not retried.
 	if err != nil && p.FileReader.Ref == "" && isNotGitRepoError(err, errStr) {
-		cmdArgs = p.buildGrepArgs(searchText, caseSensitive, usePerlRegexp, true, pathspec)
-		outStr, errStr, err = p.runGitGrep(ctx, cmdArgs)
+		cmdArgs = searchProvider.buildGrepArgs(searchText, caseSensitive, usePerlRegexp, true, pathspec)
+		outStr, errStr, err = searchProvider.runGitGrep(ctx, cmdArgs)
 	}
 
 	if err != nil {
@@ -140,9 +158,6 @@ func (p *CodeSearchProvider) gitGrep(ctx context.Context, searchText string, cas
 		}
 	}
 
-	lines := strings.Split(strings.TrimRight(outStr, "\n"), "\n")
-	truncated := len(lines) >= gitGrepMaxCount
-
 	type match struct {
 		lineNum int
 		content string
@@ -151,40 +166,52 @@ func (p *CodeSearchProvider) gitGrep(ctx context.Context, searchText string, cas
 	var fileOrder []string
 	seen := make(map[string]bool)
 
-	hasRef := p.FileReader.Ref != ""
-	splitN := 3
-	offset := 0
-	if hasRef {
-		splitN = 4
-		offset = 1
-	}
-
 	var sb strings.Builder
-	if truncated {
-		sb.WriteString(fmt.Sprintf("Note: The results have been truncated. Only showing first %d results.\n", gitGrepMaxCount))
+	refPrefix := ""
+	if searchProvider.FileReader.Ref != "" {
+		refPrefix = searchProvider.FileReader.Ref + ":"
 	}
 
-	for _, line := range lines {
-		if line == "" {
-			continue
+	totalMatches := 0
+	rest := outStr
+	for rest != "" {
+		pathEnd := strings.IndexByte(rest, '\x00')
+		if pathEnd < 0 {
+			break
 		}
-		parts := strings.SplitN(line, ":", splitN)
-		if len(parts) < splitN {
-			continue
+		fname := strings.TrimPrefix(rest[:pathEnd], refPrefix)
+		rest = rest[pathEnd+1:]
+		lineEnd := strings.IndexByte(rest, '\x00')
+		if lineEnd < 0 {
+			break
 		}
-		fname := parts[offset]
+		lineText := rest[:lineEnd]
+		rest = rest[lineEnd+1:]
+		contentEnd := strings.IndexByte(rest, '\n')
+		content := rest
+		if contentEnd >= 0 {
+			content = rest[:contentEnd]
+			rest = rest[contentEnd+1:]
+		} else {
+			rest = ""
+		}
 		m := match{}
-		ln, parseErr := strconv.Atoi(parts[offset+1])
+		ln, parseErr := strconv.Atoi(lineText)
 		if parseErr != nil {
 			continue
 		}
 		m.lineNum = ln
-		m.content = parts[offset+2]
+		m.content = content
+		totalMatches++
 		if !seen[fname] {
 			seen[fname] = true
 			fileOrder = append(fileOrder, fname)
 		}
 		fileMatches[fname] = append(fileMatches[fname], m)
+	}
+
+	if totalMatches >= gitGrepMaxCount {
+		sb.WriteString(fmt.Sprintf("Note: The results have been truncated. Only showing first %d results.\n", gitGrepMaxCount))
 	}
 
 	for _, path := range fileOrder {
@@ -201,6 +228,32 @@ func (p *CodeSearchProvider) gitGrep(ctx context.Context, searchText string, cas
 	}
 
 	return sb.String(), nil
+}
+
+func (p *CodeSearchProvider) resolveGrepRef(ctx context.Context) (string, error) {
+	arguments := []string{
+		"rev-parse",
+		"--verify",
+		"--end-of-options",
+		p.FileReader.Ref + "^{commit}",
+	}
+	var output []byte
+	var err error
+	if p.FileReader.Runner != nil {
+		output, err = p.FileReader.Runner.Output(ctx, p.FileReader.RepoDir, arguments...)
+	} else {
+		command := exec.CommandContext(ctx, "git", arguments...)
+		command.Dir = p.FileReader.RepoDir
+		output, err = command.Output()
+	}
+	if err != nil {
+		return "", err
+	}
+	resolved := strings.TrimSpace(string(output))
+	if resolved == "" {
+		return "", fmt.Errorf("resolved commit is empty")
+	}
+	return resolved, nil
 }
 
 func isNotGitRepoError(err error, stderr string) bool {
