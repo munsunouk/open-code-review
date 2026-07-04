@@ -50,18 +50,21 @@ ensure_go() {
 ensure_path() {
 	mkdir -p "$OCR_INSTALL_DIR"
 	export PATH="$OCR_INSTALL_DIR:$PATH"
-	local profile="${HOME}/.bashrc"
 	local path_line="export PATH=\"$OCR_INSTALL_DIR:\$PATH\""
-	if { [ ! -e "$profile" ] || [ -w "$profile" ]; } && ! grep -Fqx "$path_line" "$profile" 2>/dev/null; then
-		printf '\n%s\n' "$path_line" >>"$profile"
-	fi
+	for profile in "${HOME}/.bashrc" "${HOME}/.zshrc" "${HOME}/.profile"; do
+		if { [ ! -e "$profile" ] || [ -w "$profile" ]; } &&
+			! grep -Fqx "$path_line" "$profile" 2>/dev/null; then
+			printf '\n%s\n' "$path_line" >>"$profile"
+		fi
+	done
 }
 
-build_ocr() {
+	build_ocr() {
 	local src_dir="$1"
 	[ -f "$src_dir/cmd/opencodereview/main.go" ] || die "missing $src_dir/cmd/opencodereview"
 	(
 		cd "$src_dir"
+		export GOTOOLCHAIN=auto
 		go build -o "$OCR_INSTALL_DIR/ocr" ./cmd/opencodereview
 	)
 }

@@ -7,6 +7,9 @@ const {
   extractJsonText,
   normalizeComments,
   COMMENTS_SCHEMA,
+  EVIDENCE_BEGIN,
+  EVIDENCE_END,
+  loadBundleDocument,
 } = require("./generate-agent-comments");
 
 const sampleBundle = {
@@ -28,6 +31,8 @@ const sampleBundle = {
 
 assert.match(buildPrompt(sampleBundle), /sha256:sample/);
 assert.match(buildPrompt(sampleBundle), /main.go/);
+assert.ok(buildPrompt(sampleBundle).includes(EVIDENCE_BEGIN));
+assert.ok(buildPrompt(sampleBundle).includes(EVIDENCE_END));
 assert.doesNotMatch(buildPrompt(sampleBundle), /skip.go/);
 
 assert.deepStrictEqual(
@@ -58,5 +63,19 @@ assert.throws(
     }),
   /bundle_id mismatch/,
 );
+
+const manifestPath = require("path").join(
+  require("os").tmpdir(),
+  "ocr-manifest-test.json",
+);
+require("fs").writeFileSync(
+  manifestPath,
+  JSON.stringify({
+    schema_version: "agent-review-manifest/v1",
+    manifest_id: "sha256:manifest",
+    bundles: [sampleBundle],
+  }),
+);
+assert.strictEqual(loadBundleDocument(manifestPath).bundle_id, "sha256:sample");
 
 console.log("generate-agent-comments tests passed");

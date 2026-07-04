@@ -95,26 +95,30 @@ jobs:
       - name: Fetch PR head ref (ensures fork commits are available)
         run: git fetch origin pull/${{ github.event.pull_request.number }}/head
 
-      - name: Install OpenCodeReview
-        run: npm install -g @alibaba-group/open-code-review@1.7.1
+      - name: Install workflow dependencies
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            apt-get update && apt-get install -y jq
+          fi
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.5"
+          cache-dependency-path: .ocr-trusted/go.sum
+
+      - name: Build OpenCodeReview from trusted source
+        run: |
+          bash .ocr-trusted/scripts/github-actions/install-ocr-from-source.sh .ocr-trusted /usr/local/bin
+          ocr version
 
       - name: Prepare host-agent review bundle
         id: prepare
         run: |
           BASE_REF="${{ github.event.pull_request.base.ref }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-
-          echo "Preparing bundle for PR: ${HEAD_SHA} against origin/${BASE_REF}"
-
-          ocr agent prepare \
-            --from "origin/${BASE_REF}" \
-            --to "${HEAD_SHA}" \
-            --format json \
-            --output /tmp/bundle.json \
-            2>/tmp/agent-stderr.log
-
-          echo "Bundle prepared."
-          cat /tmp/agent-stderr.log || true
+          bash .ocr-trusted/scripts/github-actions/prepare-agent-bundle.sh \
+            "${BASE_REF}" "${HEAD_SHA}" /tmp/bundle.json /tmp/agent-stderr.log
 
       - name: Generate host-agent review comments
         env:
@@ -127,22 +131,7 @@ jobs:
           OCR_LLM_MODEL: ${{ secrets.OCR_LLM_MODEL }}
           OCR_LLM_USE_ANTHROPIC: ${{ secrets.OCR_LLM_USE_ANTHROPIC }}
         run: |
-          node .ocr-trusted/scripts/github-actions/generate-agent-comments.js \
-            --bundle /tmp/bundle.json \
-            --output /tmp/comments.json
-
-      - name: Validate and render host-agent report
-        run: |
-          ocr agent validate-comments \
-            --bundle /tmp/bundle.json \
-            --comments /tmp/comments.json \
-            --output /tmp/validation.json
-          ocr agent report \
-            --bundle /tmp/bundle.json \
-            --comments /tmp/comments.json \
-            --validation /tmp/validation.json \
-            --format markdown \
-            --output /tmp/report.md
+          bash .ocr-trusted/scripts/github-actions/run-host-agent-review.sh
 
       - name: Post review comments to PR
         uses: actions/github-script@v7

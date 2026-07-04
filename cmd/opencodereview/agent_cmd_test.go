@@ -1097,9 +1097,16 @@ func TestAgentSkillsUseHostAgentWorkflow(t *testing.T) {
 			"open-code-review",
 			"SKILL.md",
 		),
+		filepath.Join(
+			repositoryRoot,
+			"plugins",
+			"open-code-review",
+			"cursor-skills",
+			"open-code-review",
+			"SKILL.md",
+		),
 	}
 	required := []string{
-		"The host agent owns the review",
 		"ocr agent prepare",
 		"ocr agent validate-comments",
 		"ocr agent report",
@@ -1117,6 +1124,13 @@ func TestAgentSkillsUseHostAgentWorkflow(t *testing.T) {
 			t.Fatalf("read %s: %v", path, err)
 		}
 		text := string(content)
+		if strings.Contains(path, "cursor-skills") {
+			if !strings.Contains(text, "Cursor owns the review") {
+				t.Errorf("%s missing Cursor host-agent branding", path)
+			}
+		} else if !strings.Contains(text, "The host agent owns the review") {
+			t.Errorf("%s missing host-agent invariant", path)
+		}
 		for _, fragment := range required {
 			if !strings.Contains(text, fragment) {
 				t.Errorf("%s missing %q", path, fragment)
