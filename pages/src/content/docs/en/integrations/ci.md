@@ -4,6 +4,35 @@ sidebar:
   order: 4
 ---
 
+Run OCR on every Pull Request or Merge Request. Choose the integration path that
+matches who performs review reasoning.
+
+## Host-agent CI (no OCR LLM)
+
+When a **CI-hosted agent** (or a human following the skill workflow) authors
+findings, OCR only prepares bundles and validates comments — **no `OCR_LLM_*`
+secrets**:
+
+```bash
+ocr agent prepare --from "origin/${BASE}" --to "origin/${HEAD}" \
+  --format json --output bundle.json
+# Host agent writes agent-review-comments/v1 JSON, then:
+ocr agent validate-comments --bundle bundle.json --comments comments.json \
+  --output validation.json
+ocr agent report --bundle bundle.json --comments comments.json \
+  --validation validation.json --format markdown --output report.md
+```
+
+Inspect `partial` on scan/split manifests. Exit code **2** from
+`validate-comments` means invalid findings (not infrastructure failure).
+
+See [Agent Skill](../agent-skill/) and [Migration](../../migration/).
+
+## Native OCR CI (LLM-driven)
+
+The recipes below use **`ocr review`** with OCR's configured LLM. They follow the
+same post-to-PR pattern but require LLM credentials.
+
 Run OCR on every Pull Request or Merge Request. The upstream repo
 ships two ready-made pipelines you copy and configure — one for
 GitHub Actions, one for GitLab CI. Both are thin wrappers around the

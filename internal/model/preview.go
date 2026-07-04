@@ -11,6 +11,7 @@ const (
 	ExcludeDefaultPath ExcludeReason = "default_path"
 	ExcludeDeleted     ExcludeReason = "deleted"
 	ExcludeBinary      ExcludeReason = "binary"
+	ExcludeOversized   ExcludeReason = "oversized_diff"
 )
 
 // PreviewEntry is one file's preview record (mode-agnostic).

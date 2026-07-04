@@ -42,6 +42,10 @@ func runAgentContextForCommand(
 		printAgentContextUsage(writer, command)
 		return nil
 	}
+	if args[0] == "-h" || args[0] == "--help" {
+		printAgentContextUsage(writer, command)
+		return nil
+	}
 	options, err := parseAgentContextFlags(command, args[0], args[1:])
 	if err != nil {
 		return err

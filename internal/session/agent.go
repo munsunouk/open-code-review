@@ -299,6 +299,14 @@ func (recorder *AgentRecorder) write(record map[string]any, skipIfEnded, rejectI
 	}
 	if skipIfEnded {
 		if recorder.ended {
+			unlockErr := unlockSessionFile(file)
+			closeErr := file.Close()
+			if unlockErr != nil {
+				return fmt.Errorf("unlock agent session: %w", unlockErr)
+			}
+			if closeErr != nil {
+				return fmt.Errorf("close agent session: %w", closeErr)
+			}
 			if rejectIfEnded {
 				return fmt.Errorf("agent session already finalized")
 			}

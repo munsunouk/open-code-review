@@ -91,7 +91,7 @@ jobs:
         run: git fetch origin pull/${{ github.event.pull_request.number }}/head
 
       - name: Install OpenCodeReview
-        run: npm install -g @alibaba-group/open-code-review@^1.7.0
+        run: npm install -g @alibaba-group/open-code-review@1.7.1
 
       - name: Configure OCR
         env:

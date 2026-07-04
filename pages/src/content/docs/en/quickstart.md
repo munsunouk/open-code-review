@@ -8,9 +8,8 @@ Get your first code review running in a few minutes.
 
 ## Prerequisites
 
-- **Git ≥ 2.41**
-- **Node.js ≥ 18**
-- **LLM API key**
+- **Git ≥ 2.41** (for diff-based reviews; scan mode can run without a git repo)
+- **Node.js ≥ 18** (for the npm install path) **or** Go 1.22+ (to build from source)
 
 ## Step 1 — Install the CLI
 
@@ -19,23 +18,61 @@ npm install -g @alibaba-group/open-code-review
 ocr version
 ```
 
-> See [Installation](../installation/) for more methods.
+> See [Installation](../installation/) for more methods (Homebrew, build from source).
 
-## Step 2 — Configure an LLM
+---
+
+## Path A — Host-agent review (recommended for skills)
+
+Use this path when **Cursor, Codex, Claude Code, or another agent** performs the
+review reasoning. **No OCR LLM API key is required.**
+
+### Step 2A — Preview workspace scope
+
+```bash
+cd path/to/your-repo
+ocr agent prepare --preview
+```
+
+### Step 3A — Prepare a review bundle
+
+```bash
+# Workspace diff (default)
+ocr agent prepare --format json --output bundle.json
+
+# Branch range
+ocr agent prepare --from main --to feature-branch --format json --output bundle.json
+
+# Single commit
+ocr agent prepare --commit abc123 --format json --output bundle.json
+```
+
+Your host agent reads the bundle, writes `agent-review-comments/v1` JSON,
+then runs:
+
+```bash
+ocr agent validate-comments --bundle bundle.json --comments comments.json --output validation.json
+ocr agent report --bundle bundle.json --comments comments.json \
+  --validation validation.json --format markdown --output report.md
+```
+
+Install the [Agent Skill](../integrations/agent-skill/) so your IDE agent
+follows this pipeline automatically.
+
+---
+
+## Path B — Native OCR LLM review (legacy)
+
+Use this path when you want **OCR's configured external LLM** to analyze diffs
+directly (`ocr review` / `ocr scan`).
+
+### Step 2B — Configure an LLM
 
 ```bash
 ocr config provider
 ```
 
-It lets you pick a built-in or custom provider, enter an API key, choose a model, saves everything to the config file, and then runs `ocr llm test` once to verify the endpoint. To switch models later:
-
-```bash
-ocr config model
-```
-
-### Alternative: non-interactive command
-
-In CI or a no-TUI environment, write to the same config directly with `ocr config set`:
+Non-interactive example:
 
 ```bash
 ocr config set provider                    anthropic
@@ -43,53 +80,42 @@ ocr config set model                       claude-opus-4-6
 ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
 ```
 
-## Step 3 — Test connectivity
+### Step 3B — Test connectivity
 
 ```bash
 ocr llm test
 ```
 
-If you get an error like `no valid LLM endpoint configured`, recheck the Step 2 config. A 401 / 403 means the token is wrong or expired.
-
-## Step 4 — Run your first review
-
-Move into any Git repository and run:
+### Step 4B — Run your first review
 
 ```bash
 cd path/to/your-repo
-
-# Workspace mode — reviews staged + unstaged + untracked changes (default)
-ocr review
-
-# Branch range — reviews `main..feature-branch`
+ocr review                              # workspace
 ocr review --from main --to feature-branch
-
-# Single commit — reviews the diff that commit introduced
 ocr review --commit abc123
 ```
 
-> See [CLI Reference](../cli-reference/) for the complete list of `ocr review` flags (concurrency tuning, output format, audience mode, background context, and more) plus every other sub-command.
-
-### Want to see what would be reviewed first?
+Preview without invoking the LLM:
 
 ```bash
-ocr review --preview              # workspace
-ocr review -c abc123 --preview    # commit
+ocr review --preview
+ocr agent prepare --preview             # host-agent equivalent
 ```
 
-### JSON output for systems
-
-`--audience agent` suppresses the human-friendly progress UI so the only thing on stdout is the JSON / final summary — exactly what an upstream agent or CI script wants.
+Machine-readable output for scripts:
 
 ```bash
-ocr review --format json --audience agent > review.json
+ocr review --format json --audience agent > review.json   # native OCR
+ocr agent prepare --format json > bundle.json             # host-agent
 ```
+
+> See [CLI Reference](../cli-reference/) for every flag. See
+> [Migration](../migration/) when upgrading from `ocr codex`.
 
 ## See Also
 
+- [Agent Skill](../integrations/agent-skill/) — host-agent workflow for IDE agents.
+- [Migration](../migration/) — `ocr codex` → `ocr agent`, schema renames.
 - [Installation](../installation/) — every install method and OCR's state directory.
-- [Configuration](../configuration/) — every env var, config key, and built-in provider.
-- [CLI Reference](../cli-reference/) — every sub-command, flag, and output mode.
-- [Review Rules](../review-rules/) — customize what gets reviewed.
-- [Integrations](../integrations/) — embed OCR in Claude Code, an Agent skill, or CI.
-- [FAQ](../faq/) — known errors and remedies.
+- [Configuration](../configuration/) — env vars and provider setup (native OCR path).
+- [Integrations](../integrations/) — Claude Code, CI, subprocess.

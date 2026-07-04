@@ -260,6 +260,7 @@ export const en: TranslationKeys = {
   'docs.sidebar.gettingStarted': 'Getting Started',
   'docs.sidebar.userGuide': 'User Guide',
   'docs.sidebar.quickstart': 'QuickStart',
+  'docs.sidebar.migration': 'Migration',
   'docs.sidebar.installation': 'Installation',
   'docs.sidebar.configuration': 'Configuration',
   'docs.sidebar.cliReference': 'CLI Reference',

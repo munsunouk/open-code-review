@@ -18,16 +18,29 @@ func prefilterTokenLimit(maxTokens int) int {
 }
 
 func filterOversizedDiffs(diffs []model.Diff, maxTokens int) ([]model.Diff, []ProtocolNotice) {
-	limit := prefilterTokenLimit(maxTokens)
+	oversized, warnings := oversizedDiffPaths(diffs, maxTokens)
+	if len(oversized) == 0 {
+		return append([]model.Diff(nil), diffs...), warnings
+	}
 	kept := make([]model.Diff, 0, len(diffs))
+	for _, diff := range diffs {
+		if _, skip := oversized[diffPath(diff)]; skip {
+			continue
+		}
+		kept = append(kept, diff)
+	}
+	return kept, warnings
+}
+
+func oversizedDiffPaths(diffs []model.Diff, maxTokens int) (map[string]struct{}, []ProtocolNotice) {
+	limit := prefilterTokenLimit(maxTokens)
+	oversized := make(map[string]struct{})
 	warnings := make([]ProtocolNotice, 0)
 	for _, diff := range diffs {
-		path := diff.NewPath
-		if path == "" {
-			path = diff.OldPath
-		}
+		path := diffPath(diff)
 		tokens := llm.CountTokens(diff.Diff)
 		if tokens > limit {
+			oversized[path] = struct{}{}
 			warnings = append(warnings, ProtocolNotice{
 				Code: "oversized_diff",
 				Message: fmt.Sprintf(
@@ -37,11 +50,16 @@ func filterOversizedDiffs(diffs []model.Diff, maxTokens int) ([]model.Diff, []Pr
 					maxTokens,
 				),
 			})
-			continue
 		}
-		kept = append(kept, diff)
 	}
-	return kept, warnings
+	return oversized, warnings
+}
+
+func diffPath(diff model.Diff) string {
+	if diff.NewPath == "" || diff.NewPath == "/dev/null" {
+		return diff.OldPath
+	}
+	return diff.NewPath
 }
 
 func estimateDiffManifestTokens(bundles []Bundle) int64 {

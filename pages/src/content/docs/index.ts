@@ -2,6 +2,7 @@
 
 // English docs
 import enQuickstart from './en/quickstart.md';
+import enMigration from './en/migration.md';
 import enInstallation from './en/installation.md';
 import enConfiguration from './en/configuration.md';
 import enCliReference from './en/cli-reference.md';
@@ -21,6 +22,7 @@ import enFaq from './en/faq.md';
 
 // Chinese docs
 import zhQuickstart from './zh/quickstart.md';
+import zhMigration from './zh/migration.md';
 import zhInstallation from './zh/installation.md';
 import zhConfiguration from './zh/configuration.md';
 import zhCliReference from './zh/cli-reference.md';
@@ -40,6 +42,7 @@ import zhFaq from './zh/faq.md';
 
 // Japanese docs
 import jaQuickstart from './ja/quickstart.md';
+import jaMigration from './ja/migration.md';
 import jaInstallation from './ja/installation.md';
 import jaConfiguration from './ja/configuration.md';
 import jaCliReference from './ja/cli-reference.md';
@@ -59,6 +62,7 @@ import jaFaq from './ja/faq.md';
 
 export type DocSlug =
   | 'quickstart'
+  | 'migration'
   | 'installation'
   | 'configuration'
   | 'cli-reference'
@@ -78,6 +82,7 @@ export type DocSlug =
 
 const enDocs: Record<DocSlug, string> = {
   'quickstart': enQuickstart,
+  'migration': enMigration,
   'installation': enInstallation,
   'configuration': enConfiguration,
   'cli-reference': enCliReference,
@@ -98,6 +103,7 @@ const enDocs: Record<DocSlug, string> = {
 
 const zhDocs: Record<DocSlug, string> = {
   'quickstart': zhQuickstart,
+  'migration': zhMigration,
   'installation': zhInstallation,
   'configuration': zhConfiguration,
   'cli-reference': zhCliReference,
@@ -118,6 +124,7 @@ const zhDocs: Record<DocSlug, string> = {
 
 const jaDocs: Record<DocSlug, string> = {
   'quickstart': jaQuickstart,
+  'migration': jaMigration,
   'installation': jaInstallation,
   'configuration': jaConfiguration,
   'cli-reference': jaCliReference,

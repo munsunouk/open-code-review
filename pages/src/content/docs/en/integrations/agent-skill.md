@@ -4,16 +4,20 @@ sidebar:
   order: 1
 ---
 
-Register OCR as a callable skill so an agent framework can invoke it
-with the right flags, prerequisite checks, and triage rubric — without
-you re-deriving any of that on the calling side.
+Register OCR as a callable skill so a host agent (Cursor, Codex, Claude Code,
+or any framework that loads `SKILL.md`) can run deterministic reviews without
+re-deriving flags, validation rules, or report steps.
 
 ## What ships in the repo
 
-The repo ships a SKILL manifest at
+The canonical skill lives at
 [`skills/open-code-review/SKILL.md`](https://github.com/alibaba/open-code-review/blob/main/skills/open-code-review/SKILL.md).
-It declares OCR as a callable skill, with prerequisite checks, an
-invocation workflow, and a comment-triage rubric (High/Medium/Low).
+It declares the **host-agent workflow**: OCR prepares immutable review bundles
+and validates externally authored findings; the host agent owns reasoning,
+prioritization, second-pass reflection, and optional fixes.
+
+> **No OCR LLM required.** The default skill path uses `ocr agent …` only.
+> Configure an LLM only when you explicitly want legacy `ocr review` / `ocr scan`.
 
 ## Install
 
@@ -25,69 +29,79 @@ Run from inside the project where you want the skill available:
 npx skills add alibaba/open-code-review --skill open-code-review
 ```
 
-This pulls the manifest from the
-[skills registry](https://github.com/alibaba/open-code-review/blob/main/skills/open-code-review/SKILL.md)
-and drops it into the project so any coding agent that respects the
-skills convention picks it up on the next invocation. Re-run the
-command to update the skill to the latest version.
-
-> **Prerequisite:** the skill will install the `ocr` CLI itself the
-> first time it runs (via `npm install -g @alibaba-group/open-code-review`)
-> if the binary isn't on `PATH` — see [What the skill does](#what-the-skill-does)
-> below. You **do** need an LLM configured up front; the skill cannot
-> do that for you and will stop and ask. See [Configuration](../../configuration/).
+Re-run the command to update to the latest skill version.
 
 ### Option 2: Manual copy (system-wide)
-
-If you'd rather install the skill globally instead of per-project, copy
-the folder into your skills directory:
 
 ```bash
 mkdir -p ~/.claude/skills
 cp -R /path/to/open-code-review/skills/open-code-review ~/.claude/skills/
 ```
 
-This makes the skill available to every project on the machine.
+### Option 3: IDE plugins
+
+- **Cursor:** install the plugin from this repository (see README Option 4).
+- **Codex:** install from `.agents/plugins/marketplace.json` or the Codex plugin cache.
 
 ## What the skill does
 
-The SKILL.md is a prompt: when the calling agent loads it, the agent
-itself executes the steps. End-to-end, a single `/open-code-review`
-(or equivalent) request unfolds like this:
+When the host agent loads `SKILL.md`, a typical `/open-code-review` request
+follows this pipeline:
 
-1. **Prerequisite check.** Run `which ocr` to confirm the CLI is on
-   `PATH`, then `ocr llm test` to confirm an LLM is reachable.
-2. **Auto-install the CLI if missing.** If `which ocr` reports
-   "NOT INSTALLED", the agent runs
-   `npm install -g @alibaba-group/open-code-review` and continues. No
-   user prompt — this is treated as a routine setup step.
-3. **Stop and ask if no LLM is configured.** If `ocr llm test` fails,
-   the agent will *not* invent credentials. It shows the user the two
-   supported options (environment variables or `ocr config set …`) and
-   waits for the user to provide an API key.
-4. **Extract business context.** Inspect the review target (commits,
-   branch, working copy) and synthesise a short `--background` string.
-5. **Run the review.** Invoke
-   `ocr review --audience agent --background "…" [--commit | --from/--to]`,
-   picking flags based on whether the user asked to review the working
-   copy, a specific commit, or a branch range.
-6. **Classify and report.** Group the JSON comments into **High** /
-   **Medium** / **Low** using the rubric in SKILL.md (bugs and
-   security issues are High; nitpicks and likely false positives are
-   silently dropped), then render a Markdown summary.
-7. **Fix on request.** If the user said "review **and** fix" (or
-   similar), apply safe fixes to High/Medium items inline; otherwise
-   ask before touching the code.
+1. **Prepare deterministic input**
 
-The full prompt — including the exact triage rubric, output template,
-and gotchas — lives in
-[`skills/open-code-review/SKILL.md`](https://github.com/alibaba/open-code-review/blob/main/skills/open-code-review/SKILL.md).
-Edit your local copy if you want to tighten any of the above (e.g.,
-flip the default to always-ask before fixing).
+   ```bash
+   ocr agent prepare --format json [--from BASE --to HEAD | --commit SHA | --scan …]
+   ```
+
+   Default (no flags) reviews the workspace diff. Use `--preview` first when
+   scope is unclear. For oversized diffs, rerun with `--split` and process every
+   manifest bundle.
+
+2. **Gather evidence with target-aware context**
+
+   ```bash
+   ocr agent context read --bundle <bundle-or-manifest.json> [--bundle-index N] --path <file>
+   ```
+
+   Range and commit context must come from the bundle target, not the working
+   tree. A `stale_bundle` error means you must rerun prepare.
+
+3. **Author findings** as `agent-review-comments/v1` JSON (path, line range,
+   priority, category, title, evidence, recommendation, confidence).
+
+4. **Validate before reporting**
+
+   ```bash
+   ocr agent validate-comments --bundle <bundle-or-manifest.json> \
+     --comments <comments.json> --output <validation.json>
+   ```
+
+   Resolve every validation error. Do not publish invalid findings.
+
+5. **Render the report**
+
+   ```bash
+   ocr agent report --bundle <bundle-or-manifest.json> \
+     --comments <comments.json> --validation <validation.json> \
+     --format markdown --output <report.md>
+   ```
+
+6. **Fix only when asked.** The host agent edits code only after explicit user
+   intent; commit/push/PR actions require separate authorization.
+
+### Scan and large targets
+
+- Full-file scan: `ocr agent prepare --scan [--path PATHS] --format json`
+- Multi-bundle manifests: pass `--bundle-index <n>` to `context`, and set
+  `comments.bundle_id` to the slice you validated.
+- Partial manifests (`partial: true`, empty `bundles: []`) mean uncovered scope —
+  report that explicitly; never count skipped files as reviewed.
+
+See [Migration](../migration/) if you still have `ocr codex` or
+`codex-review-comments/v1` artifacts.
 
 ## Anthropic Agent SDK
-
-Point your SDK init at the installed skill path:
 
 ```python
 from anthropic_agent_sdk import Agent
@@ -99,21 +113,14 @@ agent = Agent(
 agent.run("Review my staged changes — focus on race conditions.")
 ```
 
-The SDK loads the SKILL.md prompt and the agent executes the workflow
-described in [What the skill does](#what-the-skill-does) — including
-the `npm install` fallback and the prompt-for-credentials step if no
-LLM is configured.
-
 ## Other agent frameworks
 
-Any framework with a "register external skill" surface can ingest the
-SKILL.md — it's just markdown with frontmatter. If your framework
-expects a different schema, the markdown body is still useful as a
-prompt template.
+Any framework with a “register external skill” surface can ingest `SKILL.md`.
+The markdown body works as a prompt template even when frontmatter schemas differ.
 
 ## See Also
 
-- [Command（Claude Code Plugin）](../claude-code/) — the
-  slash-command flavor of the same skill.
-- [Direct Subprocess](../subprocess/) — bypass the manifest and call
-  the CLI yourself.
+- [Migration](../migration/) — `ocr codex` → `ocr agent`, schema renames.
+- [QuickStart](../quickstart/) — install `ocr` and run your first host-agent review.
+- [Command (Claude Code)](../claude-code/) — slash-command flavor of the same workflow.
+- [Direct Subprocess](../subprocess/) — call the CLI yourself from scripts.

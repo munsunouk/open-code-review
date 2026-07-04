@@ -29,6 +29,7 @@ const sidebarTree: SidebarGroup[] = [
     groupLabelKey: 'docs.sidebar.gettingStarted',
     items: [
       { id: 'sb-quickstart', labelKey: 'docs.sidebar.quickstart', slug: 'quickstart' },
+      { id: 'sb-migration', labelKey: 'docs.sidebar.migration', slug: 'migration' },
       { id: 'sb-installation', labelKey: 'docs.sidebar.installation', slug: 'installation' },
       { id: 'sb-configuration', labelKey: 'docs.sidebar.configuration', slug: 'configuration' },
     ],

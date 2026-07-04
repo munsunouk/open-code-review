@@ -63,6 +63,12 @@ func Prepare(ctx context.Context, options PrepareOptions) (*Bundle, []byte, erro
 	return bundle, encoded, nil
 }
 
+// PreparePreview builds bundle metadata for preview output without serializing
+// the full protocol document.
+func PreparePreview(ctx context.Context, options PrepareOptions) (*Bundle, error) {
+	return prepareBundleCore(ctx, options)
+}
+
 func prepareBundleCore(ctx context.Context, options PrepareOptions) (*Bundle, error) {
 	if options.RepoDir == "" {
 		return nil, fmt.Errorf("repository directory is required")
@@ -89,8 +95,7 @@ func prepareBundleCore(ctx context.Context, options PrepareOptions) (*Bundle, er
 	if err != nil {
 		return nil, fmt.Errorf("load target diffs: %w", err)
 	}
-	filtered, oversizedWarnings := filterOversizedDiffs(changes, DefaultReviewMaxTokens)
-	changes = filtered
+	oversizedDiffs, oversizedWarnings := oversizedDiffPaths(changes, DefaultReviewMaxTokens)
 
 	bundle := &Bundle{
 		SchemaVersion:  BundleSchemaVersion,
@@ -102,7 +107,7 @@ func prepareBundleCore(ctx context.Context, options PrepareOptions) (*Bundle, er
 		Warnings:       oversizedWarnings,
 	}
 	bundle.Contract.MaxBundleBytes = maxBundleSize
-	buildBundleEvidence(bundle, changes, detailResolver, options.FileFilter)
+	buildBundleEvidence(bundle, changes, detailResolver, options.FileFilter, oversizedDiffs)
 	bundle.Target.DiffSHA256 = hashDiffs(changes)
 
 	bundleID, err := computeBundleID(bundle)
@@ -141,6 +146,7 @@ func buildBundleEvidence(
 	changes []model.Diff,
 	resolver rules.DetailResolver,
 	fileFilter *rules.FileFilter,
+	oversizedDiffs map[string]struct{},
 ) {
 	filter := reviewfilter.Filter{FileFilter: fileFilter}
 	ruleIDs := make(map[string]string)
@@ -150,10 +156,19 @@ func buildBundleEvidence(
 		if excludeReason == model.ExcludeNone && change.IsDeleted {
 			excludeReason = model.ExcludeDeleted
 		}
+		_, oversized := oversizedDiffs[path]
+		if oversized {
+			excludeReason = model.ExcludeOversized
+		}
 		reviewable := excludeReason == model.ExcludeNone
 		detail := resolver.ResolveDetail(path)
 		ruleID := internRule(bundle.Rules, ruleIDs, detail)
 		hunks := convertHunks(diff.ParseHunks(change.Diff))
+		patch := change.Diff
+		if oversized {
+			hunks = nil
+			patch = ""
+		}
 
 		contentSHA256 := hashFields([]byte(change.NewFileContent))
 		if change.IsDeleted {
@@ -170,7 +185,7 @@ func buildBundleEvidence(
 			Deletions:     change.Deletions,
 			ContentSHA256: contentSHA256,
 			RuleID:        ruleID,
-			Patch:         change.Diff,
+			Patch:         patch,
 			Hunks:         hunks,
 		})
 		bundle.Summary.TotalFiles++

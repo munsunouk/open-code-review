@@ -262,6 +262,7 @@ export const ja: TranslationKeys = {
   'docs.sidebar.gettingStarted': '入門ガイド',
   'docs.sidebar.userGuide': '利用ガイド',
   'docs.sidebar.quickstart': 'クイックスタート',
+  'docs.sidebar.migration': '移行ガイド',
   'docs.sidebar.installation': 'インストール',
   'docs.sidebar.configuration': '設定',
   'docs.sidebar.cliReference': 'CLI リファレンス',

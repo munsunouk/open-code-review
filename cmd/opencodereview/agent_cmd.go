@@ -226,9 +226,30 @@ func executeAgentPrepare(
 		)
 	}
 
-	maxBundleSize := int64(options.maxBundleBytes)
 	if options.preview {
-		maxBundleSize = 1 << 62
+		bundle, err := reviewbundle.PreparePreview(ctx, reviewbundle.PrepareOptions{
+			RepoDir: repoDir,
+			Target: reviewbundle.TargetSpec{
+				From:   options.from,
+				To:     options.to,
+				Commit: options.commit,
+			},
+			Resolver:      resolver,
+			FileFilter:    fileFilter,
+			GitRunner:     gitcmd.New(options.maxGitProcs),
+			MaxBundleSize: int64(options.maxBundleBytes),
+		})
+		if err != nil {
+			return fmt.Errorf("prepare agent review preview: %w", err)
+		}
+		event := session.AgentEvent{
+			Files:      bundle.Summary.ReviewableFiles,
+			Warnings:   len(bundle.Warnings),
+			DurationMS: time.Since(started).Milliseconds(),
+		}
+		writeAgentPreview(writer, bundle)
+		recordAgentEventBestEffort(repoDir, options.sessionID, bundle.BundleID, "prepare", event, false)
+		return nil
 	}
 	bundle, encoded, err := reviewbundle.Prepare(ctx, reviewbundle.PrepareOptions{
 		RepoDir: repoDir,
@@ -240,7 +261,7 @@ func executeAgentPrepare(
 		Resolver:      resolver,
 		FileFilter:    fileFilter,
 		GitRunner:     gitcmd.New(options.maxGitProcs),
-		MaxBundleSize: maxBundleSize,
+		MaxBundleSize: int64(options.maxBundleBytes),
 	})
 	if err != nil {
 		return fmt.Errorf("prepare agent review bundle: %w", err)
@@ -249,11 +270,6 @@ func executeAgentPrepare(
 		Files:      bundle.Summary.ReviewableFiles,
 		Warnings:   len(bundle.Warnings),
 		DurationMS: time.Since(started).Milliseconds(),
-	}
-	if options.preview {
-		writeAgentPreview(writer, bundle)
-		recordAgentEventBestEffort(repoDir, options.sessionID, bundle.BundleID, "prepare", event, false)
-		return nil
 	}
 	if options.outputPath != "" {
 		if err := writePrivateFile(options.outputPath, encoded); err != nil {
@@ -507,7 +523,7 @@ Commands:
 }
 
 func printAgentPrepareUsage(writer io.Writer, command string) {
-	fmt.Fprintln(writer, `Usage:
+	fmt.Fprintf(writer, `Usage:
   ocr `+command+` prepare [--repo PATH] [--from REF --to REF | --commit REF]
                     [--rule PATH] [--exclude PATTERNS] [--preview]
                     [--output PATH] [--max-bundle-bytes N] [--split]
@@ -517,13 +533,14 @@ func printAgentPrepareUsage(writer io.Writer, command string) {
                     [--max-tokens-budget N] [--max-file-size-bytes N]
 
 Defaults:
-  --max-bundle-bytes  8388608 (8 MiB)
+  --max-bundle-bytes  %d (%d MiB)
   --batch-size        50
   --max-git-procs     16
 
 Notes:
   --scan and --split cannot be combined.
-  --preview cannot be used with --output.`)
+  --preview cannot be used with --output.
+`, reviewbundle.DefaultMaxBundleBytes, reviewbundle.DefaultMaxBundleBytes/(1024*1024))
 }
 
 func agentSessionIDHelp(command string) string {

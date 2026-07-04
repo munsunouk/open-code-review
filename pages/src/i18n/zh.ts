@@ -262,6 +262,7 @@ export const zh: TranslationKeys = {
   'docs.sidebar.gettingStarted': '入门指南',
   'docs.sidebar.userGuide': '使用指南',
   'docs.sidebar.quickstart': '快速开始',
+  'docs.sidebar.migration': '迁移指南',
   'docs.sidebar.installation': '安装',
   'docs.sidebar.configuration': '配置',
   'docs.sidebar.cliReference': 'CLI 参考',
