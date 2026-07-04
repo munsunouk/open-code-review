@@ -46,6 +46,7 @@ GitHub: https://github.com/alibaba/open-code-review
 | Command | Alias | What it does |
 |---|---|---|
 | `ocr review` | `ocr r` | Run a code review and emit comments. |
+| `ocr agent` | — | Host-agent bundle, context, validation, and report tooling (no OCR LLM). |
 | `ocr rules check <file>` | — | Show which rule applies to a given file path and where it came from. |
 | `ocr config set <key> <value>` | — | Persist a config value to `~/.opencodereview/config.json`. |
 | `ocr config unset custom_providers.<name>` | — | Delete a custom provider (clears active `provider`/`model` if it was active). |
@@ -58,6 +59,49 @@ GitHub: https://github.com/alibaba/open-code-review
 
 `ocr` and `ocr -h` print top-level usage. Each subcommand also accepts
 `-h` / `--help`.
+
+## `ocr agent`
+
+Deterministic host-agent workflow. OCR prepares immutable review bundles,
+serves target-aware context, validates externally authored findings, and
+renders reports. **No OCR LLM provider or API key is required** for these
+commands — the host agent (Cursor, Codex, CI script, etc.) performs review
+reasoning and writes `agent-review-comments/v1` JSON.
+
+### Subcommands
+
+| Subcommand | Purpose |
+|---|---|
+| `prepare` | Build a review bundle or scan/split manifest (`--format json`). |
+| `validate-comments` | Validate `agent-review-comments/v1` against bundle evidence. |
+| `report` | Render Markdown/text/JSON from validated comments (`--validation` required). |
+| `context read\|find\|diff\|search` | Target-aware repository reads without an LLM. |
+
+### Typical pipeline
+
+```bash
+ocr agent prepare --from main --to HEAD --format json --output bundle.json
+# Host agent authors comments.json (agent-review-comments/v1)
+ocr agent validate-comments --bundle bundle.json --comments comments.json --output validation.json
+ocr agent report --bundle bundle.json --comments comments.json \
+  --validation validation.json --format markdown --output report.md
+```
+
+### Notable flags
+
+| Flag | Used on | Description |
+|---|---|---|
+| `--repo` | all | Git root for diff targets; scan path resolution root. |
+| `--bundle` | context, validate, report | Single bundle or multi-bundle manifest path. |
+| `--bundle-index` | context | Select one slice from a scan/split manifest (0-based). |
+| `--output` | prepare, validate, report, context | Write result to a file instead of stdout. |
+| `--session-id` | all | Optional correlated session JSONL under `~/.opencodereview/sessions/`. |
+| `--scan` / `--split` | prepare | Full-file scan or size-bounded diff manifests. |
+| `--preview` | prepare | Manifest only; no full protocol document on stdout. |
+
+Exit codes: `validate-comments` returns **2** when comments fail validation (JSON may still be written). Infrastructure errors use **1**.
+
+See [Agent Skill](../integrations/agent-skill/) and [Migration](../migration/).
 
 ## `ocr review`
 

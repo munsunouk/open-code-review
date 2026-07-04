@@ -4,12 +4,37 @@ sidebar:
   order: 8
 ---
 
-A walk-through of how `ocr review` actually works inside, from the moment
-you press Enter to the JSON that lands in your terminal. The goal is to
-give you enough mental model to debug behaviour, tune flags, and read
-the source code with confidence.
+A walk-through of how Open Code Review works inside — both the **host-agent**
+path (`ocr agent …`, default for skills) and the **native OCR LLM** path
+(`ocr review`). The goal is to give you enough mental model to debug behaviour,
+tune flags, and read the source code with confidence.
 
-## High-level pipeline
+## Host-agent pipeline (`ocr agent`)
+
+```mermaid
+flowchart TD
+    A["<b>Host agent</b><br/>(Cursor, Codex, CI script, …)"]
+    B["<b>ocr agent prepare</b><br/>Deterministic bundle / manifest"]
+    C["<b>Host reasoning</b><br/>Author agent-review-comments/v1 JSON"]
+    D["<b>ocr agent validate-comments</b><br/>Evidence + staleness checks"]
+    E["<b>ocr agent report</b><br/>Markdown / text / JSON output"]
+    F["<b>ocr agent context</b><br/>Optional read-only repo evidence"]
+
+    A --> B
+    B --> F
+    F --> C
+    B --> C
+    C --> D --> E
+```
+
+OCR does **not** call its configured LLM on this path. Implementation lives under
+[`internal/reviewbundle/`](https://github.com/alibaba/open-code-review/blob/main/internal/reviewbundle/)
+(prepare, validate, report, context) and [`cmd/opencodereview/agent_*.go`](https://github.com/alibaba/open-code-review/tree/main/cmd/opencodereview).
+
+GitHub Actions in this repository uses the same model: `ocr agent prepare` → CI
+host LLM script → `validate-comments` → PR comment posting.
+
+## Native OCR LLM pipeline (`ocr review`)
 
 ```mermaid
 flowchart TD

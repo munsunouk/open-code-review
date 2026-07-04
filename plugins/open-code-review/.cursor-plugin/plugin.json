@@ -23,5 +23,14 @@
     "quality",
     "automation"
   ],
-  "skills": "./cursor-skills/"
+  "skills": "./cursor-skills/",
+  "interface": {
+    "displayName": "Open Code Review",
+    "shortDescription": "Cursor-led reviews with OCR deterministic bundles.",
+    "defaultPrompt": [
+      "Use Open Code Review to review my current changes.",
+      "Use Open Code Review to review this branch against main.",
+      "Use Open Code Review to review and fix high-confidence issues."
+    ]
+  }
 }

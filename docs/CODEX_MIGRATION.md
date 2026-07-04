@@ -35,3 +35,13 @@ Preview builds of this branch used `codex-review-bundle/v1`, `codex-review-comme
 Agent sessions are recorded under `~/.opencodereview/sessions/` with viewer-compatible JSONL. Files are not pruned automatically; long-lived CI runners should plan for growth or periodic cleanup.
 
 Legacy `controlPlane: "codex-owned"` sessions may still appear in the session list, but workflow events stored as unknown types (for example `codex_event`) are ignored. Only `agent_event` records render in the agent workflow timeline. Migrate to `ocr agent` with `controlPlane: "agent"` for full observability.
+
+## Refresh stale Codex plugin cache
+
+If `~/.codex/plugins/cache/open-code-review/.../SKILL.md` still mentions `ocr codex` or `codex-review-comments/v1`, refresh from this repository:
+
+```bash
+./scripts/reinstall-codex-plugin.sh
+```
+
+Or reinstall from the local marketplace entry in `.agents/plugins/marketplace.json`.

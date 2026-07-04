@@ -1180,10 +1180,16 @@ func TestCursorPluginUsesAgentWorkflow(t *testing.T) {
 		t.Errorf("%s does not describe Cursor agent workflow", manifestPath)
 	}
 	var manifestData struct {
-		Skills string `json:"skills"`
+		Skills    string `json:"skills"`
+		Interface struct {
+			DefaultPrompt []string `json:"defaultPrompt"`
+		} `json:"interface"`
 	}
 	if err := json.Unmarshal(manifest, &manifestData); err != nil {
 		t.Fatalf("decode %s: %v", manifestPath, err)
+	}
+	if len(manifestData.Interface.DefaultPrompt) == 0 {
+		t.Fatalf("%s missing interface.defaultPrompt entries", manifestPath)
 	}
 	cleanSkillsPath := filepath.Clean(manifestData.Skills)
 	if filepath.IsAbs(cleanSkillsPath) ||

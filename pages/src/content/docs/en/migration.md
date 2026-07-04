@@ -54,6 +54,14 @@ Changing `$HOME` or `~/.opencodereview/rule.json` between prepare and validate
 can change rule resolution without a `stale_bundle` error — rerun prepare when
 policy inputs must stay fixed.
 
+## Refresh stale Codex plugin cache
+
+If your local Codex cache still shows `ocr codex` or `codex-review-comments/v1`:
+
+```bash
+./scripts/reinstall-codex-plugin.sh
+```
+
 ## See Also
 
 - [Agent Skill](../integrations/agent-skill/) — current skill workflow.
