@@ -1039,6 +1039,11 @@ func TestCursorPluginUsesAgentWorkflow(t *testing.T) {
 		"--output <bundle.json>",
 		"--output <validation.json>",
 		"agent-review-comments/v1",
+		"--bundle-index",
+		"bundle-or-manifest.json",
+		"Manifest Freshness",
+		"Default (no flags)",
+		"second-pass",
 	} {
 		if !strings.Contains(skillText, fragment) {
 			t.Errorf("%s missing %q", skillPath, fragment)
@@ -1047,6 +1052,7 @@ func TestCursorPluginUsesAgentWorkflow(t *testing.T) {
 	for _, forbidden := range []string{
 		"Codex owns the review",
 		"Codex performs planning",
+		"codex-review-comments/v1",
 	} {
 		if strings.Contains(skillText, forbidden) {
 			t.Errorf("%s contains Codex-specific instruction %q", skillPath, forbidden)
