@@ -33,10 +33,12 @@ Go to your repository's **Settings → Secrets and variables → Actions** and a
 
 | Secret | Required | Description |
 |--------|----------|-------------|
-| `OCR_LLM_URL` | Yes | LLM API endpoint URL (e.g., `https://api.openai.com/v1/chat/completions`) |
-| `OCR_LLM_AUTH_TOKEN` | Yes | API authentication token |
-| `OCR_LLM_MODEL` | No | Model name (defaults to `gpt-4o`) |
-| `OCR_LLM_USE_ANTHROPIC` | No | Set to `true` if using Anthropic Claude models |
+| `HOST_AGENT_LLM_URL` | Yes* | CI host LLM endpoint for comment generation |
+| `HOST_AGENT_LLM_AUTH_TOKEN` | Yes* | API authentication token |
+| `HOST_AGENT_LLM_MODEL` | No | Model name (defaults to `gpt-4o` in script) |
+| `HOST_AGENT_LLM_USE_ANTHROPIC` | No | Set to `true` if using Anthropic Claude models |
+
+\*Legacy `OCR_LLM_*` secret names still work as fallbacks.
 
 > **Note:** `GITHUB_TOKEN` is automatically provided by GitHub Actions with the required `pull-requests: write` permission.
 >
