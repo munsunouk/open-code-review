@@ -1,12 +1,12 @@
-# Agent Cloud (Cursor/Codex) — fork ocr 설치
+# Agent Cloud — fork ocr 설치
 
-Cursor Cloud Agent 또는 Codex Cloud 같은 host-agent 격리 VM 환경의 **기존 환경**(예: eggtranslate)에 alibaba npm 패키지가 아닌 **fork 브랜치**의 `ocr`을 추가하는 방법입니다.
+host-agent 격리 VM 환경의 **기존 환경**(예: eggtranslate)에 alibaba npm 패키지가 아닌 **fork 브랜치**의 `ocr`을 추가하는 방법입니다.
 
 host-agent 경로(`ocr agent prepare` …)는 OCR LLM provider/API key가 **필요 없습니다**.
 
 ## 전제
 
-- Cursor Dashboard → **Cloud Agents** 또는 Codex Cloud 환경이 이미 구성되어 있음
+- host agent의 cloud 환경이 이미 구성되어 있음
 - fork: `https://github.com/munsunouk/open-code-review.git`
 - 브랜치: `cursor-agent-adapter`
 - VM에 **Go 1.25+** 필요 (`go.mod` 기준). Dockerfile/base image에 없으면 추가
@@ -46,7 +46,7 @@ pnpm install \
 
 `OCR_REPO_DIR`은 VM에서 `open-code-review`가 checkout된 상대 경로입니다.
 
-## 방법 3: eggtranslate repo에 `.cursor/environment.json`으로 고정
+## 방법 3: repo 환경 설정 파일로 고정
 
 eggtranslate 저장소에 커밋해 팀 전체가 같은 Cloud 설정을 쓰게 할 수 있습니다.
 
@@ -60,7 +60,7 @@ Dockerfile을 쓰는 환경이면 Go 설치를 Dockerfile에 넣고, `install`�
 
 ## Dockerfile에 Go가 없을 때
 
-`.cursor/Dockerfile` 예시:
+환경용 Dockerfile 예시:
 
 ```dockerfile
 FROM ubuntu:24.04
@@ -87,8 +87,8 @@ ocr agent prepare --preview
 ## Open Code Review skill과 함께 쓰기
 
 `ocr`만 설치해도 agent가 `ocr agent …` 워크플로를 실행할 수 있습니다.
-Cursor plugin/skill을 쓰려면 fork의 Cursor plugin을 marketplace에 추가하거나,
-eggtranslate의 `AGENTS.md`에 host-agent 리뷰 절차를 적어 두세요.
+host plugin/skill을 쓰려면 fork의 plugin을 marketplace에 추가하거나, eggtranslate의
+`AGENTS.md`에 host-agent 리뷰 절차를 적어 두세요.
 
 ```markdown
 ## Agent Cloud specific instructions
@@ -102,7 +102,7 @@ Code review: run `ocr agent prepare --format json`, review, then
 | | `@alibaba-group/open-code-review` (npm) | fork 소스 빌드 |
 |---|---|---|
 | 출처 | upstream 릴리스 바이너리 | `munsunouk/open-code-review@cursor-agent-adapter` |
-| Cursor adapter 변경 | 반영 안 됨 | fork 브랜치 그대로 반영 |
+| Host adapter 변경 | 반영 안 됨 | fork 브랜치 그대로 반영 |
 | Cloud install | `npm install -g …` | `scripts/agent-cloud-install-ocr.sh` |
 
 ## 스크립트 위치
