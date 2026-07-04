@@ -121,14 +121,39 @@ func ValidateScanManifestFreshness(
 	if result == nil || manifest == nil || repoDir == "" {
 		return
 	}
+	seen := make(map[string]struct{})
 	for index := range manifest.Bundles {
 		bundle := &manifest.Bundles[index]
 		if bundle.BundleID == selectedBundleID {
 			continue
 		}
-		validateFreshScanFiles(result, bundle.Files, repoDir)
+		validateFreshScanFilesDeduped(result, bundle.Files, repoDir, seen)
 	}
 	result.Valid = len(result.Errors) == 0
+}
+
+func validateFreshScanFilesDeduped(
+	result *ValidationResult,
+	files []File,
+	repoDir string,
+	seen map[string]struct{},
+) {
+	for _, file := range files {
+		if _, ok := seen[file.Path]; ok {
+			continue
+		}
+		seen[file.Path] = struct{}{}
+		digest, err := hashScanTargetFileAtPath(repoDir, file.Path)
+		if err != nil || digest != file.ContentSHA256 {
+			addValidationError(
+				result,
+				"stale_bundle",
+				file.Path,
+				nil,
+				"scan file changed after bundle creation",
+			)
+		}
+	}
 }
 
 func validateFreshTarget(

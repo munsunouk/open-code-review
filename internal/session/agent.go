@@ -34,6 +34,7 @@ type AgentRecorder struct {
 	runID    string
 	bundleID string
 	started  time.Time
+	ended    bool
 }
 
 // OpenAgentRecorder opens or resumes one explicitly requested run ID.
@@ -123,6 +124,11 @@ func finishResumeAgentRecorder(
 	} else if bundleID != "" {
 		recorder.bundleID = bundleID
 	}
+	ended, endErr := agentSessionFileHasEndedAtPath(recorder.path)
+	if endErr != nil {
+		return nil, endErr
+	}
+	recorder.ended = ended
 	return recorder, nil
 }
 
@@ -292,6 +298,12 @@ func (recorder *AgentRecorder) write(record map[string]any, skipIfEnded, rejectI
 		return fmt.Errorf("lock agent session: %w", err)
 	}
 	if skipIfEnded {
+		if recorder.ended {
+			if rejectIfEnded {
+				return fmt.Errorf("agent session already finalized")
+			}
+			return nil
+		}
 		ended, endErr := agentSessionFileHasEnd(file)
 		if endErr != nil {
 			unlockSessionFile(file)
@@ -299,6 +311,7 @@ func (recorder *AgentRecorder) write(record map[string]any, skipIfEnded, rejectI
 			return endErr
 		}
 		if ended {
+			recorder.ended = true
 			unlockErr := unlockSessionFile(file)
 			closeErr := file.Close()
 			if unlockErr != nil {
@@ -325,7 +338,19 @@ func (recorder *AgentRecorder) write(record map[string]any, skipIfEnded, rejectI
 	if closeErr != nil {
 		return fmt.Errorf("close agent session: %w", closeErr)
 	}
+	if recordType, _ := record["type"].(string); recordType == "session_end" {
+		recorder.ended = true
+	}
 	return nil
+}
+
+func agentSessionFileHasEndedAtPath(path string) (bool, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return false, fmt.Errorf("open agent session: %w", err)
+	}
+	defer file.Close()
+	return agentSessionFileHasEnd(file)
 }
 
 func agentSessionFileHasEnd(file *os.File) (bool, error) {

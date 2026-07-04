@@ -583,6 +583,38 @@ func TestAgentContextReadReturnsBundleEnvelope(t *testing.T) {
 	}
 }
 
+func TestAgentContextWriteOutputFile(t *testing.T) {
+	repository := initAgentRepository(t)
+	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
+	bundlePath := filepath.Join(t.TempDir(), "bundle.json")
+	if err := runAgentWithWriter([]string{
+		"prepare", "--repo", repository, "--output", bundlePath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("prepare bundle: %v", err)
+	}
+	outputPath := filepath.Join(t.TempDir(), "context.json")
+	if err := runAgentWithWriter([]string{
+		"context", "read",
+		"--repo", repository,
+		"--bundle", bundlePath,
+		"--path", "main.go",
+		"--output", outputPath,
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("context read: %v", err)
+	}
+	content, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("read context output: %v", err)
+	}
+	var result reviewbundle.ContextResult
+	if err := json.Unmarshal(content, &result); err != nil {
+		t.Fatalf("decode context result: %v\n%s", err, string(content))
+	}
+	if result.Operation != "read" {
+		t.Fatalf("context result = %+v", result)
+	}
+}
+
 func TestAgentContextReadRejectsPathEscape(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
@@ -994,6 +1026,37 @@ func TestAgentSkillsUseHostAgentWorkflow(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestCodexMarketplacePointsAtPlugin(t *testing.T) {
+	repositoryRoot := filepath.Clean(filepath.Join("..", ".."))
+	marketplacePath := filepath.Join(repositoryRoot, ".agents", "plugins", "marketplace.json")
+	marketplace, err := os.ReadFile(marketplacePath)
+	if err != nil {
+		t.Fatalf("read %s: %v", marketplacePath, err)
+	}
+
+	var data struct {
+		Plugins []struct {
+			Name   string `json:"name"`
+			Source struct {
+				Source string `json:"source"`
+				Path   string `json:"path"`
+			} `json:"source"`
+		} `json:"plugins"`
+	}
+	if err := json.Unmarshal(marketplace, &data); err != nil {
+		t.Fatalf("decode %s: %v", marketplacePath, err)
+	}
+
+	for _, plugin := range data.Plugins {
+		if plugin.Name == "open-code-review" &&
+			plugin.Source.Source == "local" &&
+			plugin.Source.Path == "./plugins/open-code-review" {
+			return
+		}
+	}
+	t.Fatalf("%s missing local open-code-review plugin entry", marketplacePath)
 }
 
 func TestCursorPluginUsesAgentWorkflow(t *testing.T) {

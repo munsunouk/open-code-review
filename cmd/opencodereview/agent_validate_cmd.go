@@ -111,7 +111,7 @@ func runAgentValidateCommentsForCommand(
 func parseAgentValidateFlags(command string, args []string) (agentValidateOptions, error) {
 	flags := newOcrFlagSet("ocr " + command + " validate-comments")
 	options := agentValidateOptions{}
-	flags.StringVar(&options.repoDir, "repo", "", "root directory of the git repository")
+	flags.StringVar(&options.repoDir, "repo", "", agentRepoFlagHelp)
 	flags.StringVar(&options.bundlePath, "bundle", "", "review bundle JSON path")
 	flags.StringVar(&options.commentsPath, "comments", "", agentCommentsHelp(command))
 	flags.StringVar(&options.outputPath, "output", "", "explicit validation output path")

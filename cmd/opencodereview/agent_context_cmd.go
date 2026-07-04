@@ -28,6 +28,7 @@ type agentContextOptions struct {
 	showHelp      bool
 	sessionID     string
 	bundleIndex   int
+	outputPath    string
 }
 
 func runAgentContextForCommand(
@@ -58,14 +59,18 @@ func runAgentContextForCommand(
 	if loadErr != nil {
 		loadedManifest, manifestErr := reviewbundle.LoadScanManifest(bytes.NewReader(bundleContent))
 		if manifestErr != nil {
-			return fmt.Errorf("open bundle: %w", manifestErr)
+			return fmt.Errorf("open bundle: %w (not a multi-bundle manifest: %v)", loadErr, manifestErr)
 		}
 		manifest = loadedManifest
 		if options.bundleIndex < 0 && len(manifest.Bundles) == 1 {
 			options.bundleIndex = 0
 		}
 		if options.bundleIndex < 0 || options.bundleIndex >= len(manifest.Bundles) {
-			return fmt.Errorf("--bundle-index must select one of %d scan bundles", len(manifest.Bundles))
+			return fmt.Errorf(
+				"--bundle-index must select one of %d manifest bundles (0..%d)",
+				len(manifest.Bundles),
+				len(manifest.Bundles)-1,
+			)
 		}
 		bundle = &manifest.Bundles[options.bundleIndex]
 	}
@@ -95,7 +100,11 @@ func runAgentContextForCommand(
 	if err != nil {
 		return fmt.Errorf("encode context result: %w", err)
 	}
-	if _, err := writer.Write(append(encoded, '\n')); err != nil {
+	if options.outputPath != "" {
+		if err := writePrivateFile(options.outputPath, append(encoded, '\n')); err != nil {
+			return err
+		}
+	} else if _, err := writer.Write(append(encoded, '\n')); err != nil {
 		return err
 	}
 	recordAgentEventBestEffort(
@@ -140,8 +149,9 @@ func executeContextOperation(
 func parseAgentContextFlags(command string, operation string, args []string) (agentContextOptions, error) {
 	flags := newOcrFlagSet("ocr " + command + " context " + operation)
 	options := agentContextOptions{operation: operation, bundleIndex: -1}
-	flags.StringVar(&options.repoDir, "repo", "", "repository root")
-	flags.StringVar(&options.bundlePath, "bundle", "", "review bundle JSON path")
+	flags.StringVar(&options.repoDir, "repo", "", agentRepoFlagHelp)
+	flags.StringVar(&options.bundlePath, "bundle", "", "review bundle or manifest JSON path")
+	flags.StringVar(&options.outputPath, "output", "", "explicit context result output path")
 	flags.StringVar(&options.path, "path", "", "file path or comma-separated paths")
 	flags.StringVar(&options.query, "query", "", "file-name or code-search query")
 	flags.StringVar(&options.filePatterns, "file-pattern", "", "comma-separated search pathspecs")
@@ -151,7 +161,7 @@ func parseAgentContextFlags(command string, operation string, args []string) (ag
 	flags.BoolVar(&options.caseSensitive, "case-sensitive", false, "use case-sensitive matching")
 	flags.BoolVar(&options.usePerlRegexp, "perl-regexp", false, "use Perl-compatible search regex")
 	flags.StringVar(&options.sessionID, "session-id", "", agentSessionIDHelp(command))
-	flags.IntVar(&options.bundleIndex, "bundle-index", -1, "scan manifest bundle index")
+	flags.IntVar(&options.bundleIndex, "bundle-index", -1, agentBundleIndexFlagHelp)
 	if err := flags.Parse(args); err != nil {
 		return options, fmt.Errorf("parse flags: %w", err)
 	}
@@ -183,11 +193,11 @@ func parseAgentContextFlags(command string, operation string, args []string) (ag
 func printAgentContextUsage(writer io.Writer, command string) {
 	fmt.Fprintln(writer, `Usage:
   ocr `+command+` context read --bundle FILE [--bundle-index N] --path FILE
-                   [--repo PATH] [--session-id ID] [--start-line N --max-lines N]
+                   [--repo PATH] [--output FILE] [--session-id ID] [--start-line N --max-lines N]
   ocr `+command+` context find --bundle FILE [--bundle-index N] --query NAME
-                   [--repo PATH] [--session-id ID]
+                   [--repo PATH] [--output FILE] [--session-id ID]
   ocr `+command+` context diff --bundle FILE [--bundle-index N] --path FILE[,FILE]
-                   [--repo PATH] [--session-id ID]
+                   [--repo PATH] [--output FILE] [--session-id ID]
   ocr `+command+` context search --bundle FILE [--bundle-index N] --query TEXT
-                   [--repo PATH] [--session-id ID] [--file-pattern PATTERNS]`)
+                   [--repo PATH] [--output FILE] [--session-id ID] [--file-pattern PATTERNS]`)
 }

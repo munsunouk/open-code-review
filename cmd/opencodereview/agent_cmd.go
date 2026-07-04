@@ -82,7 +82,7 @@ func runAgentCommandsWithWriter(command string, args []string, writer io.Writer)
 func parseAgentPrepareFlags(command string, args []string) (agentPrepareOptions, error) {
 	flags := newOcrFlagSet("ocr " + command + " prepare")
 	options := agentPrepareOptions{}
-	flags.StringVar(&options.repoDir, "repo", "", "root directory of the git repository")
+	flags.StringVar(&options.repoDir, "repo", "", agentRepoFlagHelp)
 	flags.StringVar(&options.rulePath, "rule", "", "path to a custom review rule file")
 	flags.StringVar(&options.from, "from", "", "source ref for a range review")
 	flags.StringVar(&options.to, "to", "", "target ref for a range review")
@@ -514,7 +514,16 @@ func printAgentPrepareUsage(writer io.Writer, command string) {
   ocr `+command+` prepare --scan [--repo PATH] [--path PATHS]
                     [--include PATTERNS] [--exclude PATTERNS]
                     [--batch none|by-language|by-directory] [--batch-size N]
-                    [--max-tokens-budget N] [--max-file-size-bytes N]`)
+                    [--max-tokens-budget N] [--max-file-size-bytes N]
+
+Defaults:
+  --max-bundle-bytes  8388608 (8 MiB)
+  --batch-size        50
+  --max-git-procs     16
+
+Notes:
+  --scan and --split cannot be combined.
+  --preview cannot be used with --output.`)
 }
 
 func agentSessionIDHelp(command string) string {
