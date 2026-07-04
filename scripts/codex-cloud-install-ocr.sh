@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Compatibility wrapper for users still calling the Cursor Cloud install entrypoint.
+# Compatibility wrapper for users still calling the Codex Cloud install entrypoint.
 set -euo pipefail
 
-OCR_HOST_LABEL="${OCR_HOST_LABEL:-Cursor Cloud}"
-OCR_INSTALLER_NAME="${OCR_INSTALLER_NAME:-cursor-cloud-install-ocr}"
+OCR_HOST_LABEL="${OCR_HOST_LABEL:-Codex Cloud}"
+OCR_INSTALLER_NAME="${OCR_INSTALLER_NAME:-codex-cloud-install-ocr}"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || pwd)"
 local_script="${script_dir}/agent-cloud-install-ocr.sh"

@@ -82,4 +82,4 @@ ocr agent report \
 기존 `ocr review`와 `ocr scan`은 유지됩니다. 사용자가 OCR의 독립 external-LLM 모드를
 명시적으로 요청한 경우에만 사용합니다.
 
-Cursor Cloud Agent 환경에 fork `ocr`을 설치하려면 [`docs/CURSOR_CLOUD.md`](../../docs/CURSOR_CLOUD.md)를 참고하세요.
+Cursor Cloud Agent 또는 Codex Cloud 환경에 fork `ocr`을 설치하려면 [`docs/CURSOR_CLOUD.md`](../../docs/CURSOR_CLOUD.md)를 참고하세요. 기본 진입점은 `scripts/agent-cloud-install-ocr.sh`입니다.

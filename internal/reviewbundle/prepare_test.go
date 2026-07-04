@@ -136,6 +136,40 @@ func TestPrepareRejectsOversizedBundleWithoutTruncation(t *testing.T) {
 	}
 }
 
+func TestBuildBundleEvidenceKeepsOversizedDiffAsSkippedFile(t *testing.T) {
+	bundle := &Bundle{Rules: make(map[string]Rule)}
+	patch := "@@ -1 +1 @@\n-old\n+" + strings.Repeat("x", 128) + "\n"
+	buildBundleEvidence(
+		bundle,
+		[]model.Diff{{
+			NewPath:        "large.go",
+			Diff:           patch,
+			NewFileContent: "package sample\n",
+			Insertions:     1,
+			Deletions:      1,
+		}},
+		detailResolverStub{},
+		nil,
+		map[string]struct{}{"large.go": {}},
+	)
+
+	if bundle.Summary.TotalFiles != 1 ||
+		bundle.Summary.ReviewableFiles != 0 ||
+		bundle.Summary.ExcludedFiles != 1 {
+		t.Fatalf("summary = %+v, want one skipped oversized file", bundle.Summary)
+	}
+	file := bundle.Files[0]
+	if file.Reviewable ||
+		file.ExcludeReason != model.ExcludeOversized ||
+		file.Patch != "" ||
+		len(file.Hunks) != 0 {
+		t.Fatalf("file = %+v, want oversized file without patch evidence", file)
+	}
+	if file.ContentSHA256 == "" || file.RuleID == "" {
+		t.Fatalf("file missing stable metadata: %+v", file)
+	}
+}
+
 func TestPreparePartitionedSplitsLargeDiffWithoutDuplicates(t *testing.T) {
 	repository := initPrepareRepository(t)
 	for _, name := range []string{"one.go", "two.go", "three.go"} {

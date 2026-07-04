@@ -1,12 +1,12 @@
-# Cursor Cloud Agent — fork ocr 설치
+# Agent Cloud (Cursor/Codex) — fork ocr 설치
 
-Cursor Cloud Agent(격리 VM)의 **기존 환경**(예: eggtranslate)에 alibaba npm 패키지가 아닌 **fork 브랜치**의 `ocr`을 추가하는 방법입니다.
+Cursor Cloud Agent 또는 Codex Cloud 같은 host-agent 격리 VM 환경의 **기존 환경**(예: eggtranslate)에 alibaba npm 패키지가 아닌 **fork 브랜치**의 `ocr`을 추가하는 방법입니다.
 
 host-agent 경로(`ocr agent prepare` …)는 OCR LLM provider/API key가 **필요 없습니다**.
 
 ## 전제
 
-- Cursor Dashboard → **Cloud Agents** → 환경(예: eggtranslate)이 이미 구성되어 있음
+- Cursor Dashboard → **Cloud Agents** 또는 Codex Cloud 환경이 이미 구성되어 있음
 - fork: `https://github.com/munsunouk/open-code-review.git`
 - 브랜치: `cursor-agent-adapter`
 - VM에 **Go 1.25+** 필요 (`go.mod` 기준). Dockerfile/base image에 없으면 추가
@@ -17,7 +17,7 @@ eggtranslate 환경의 **Install / update command** 끝에 아래를 이어 붙�
 (기존 `pnpm install` 등은 그대로 두고 `&&`로 연결)
 
 ```bash
-&& bash -c "$(curl -fsSL https://raw.githubusercontent.com/munsunouk/open-code-review/cursor-agent-adapter/scripts/cursor-cloud-install-ocr.sh)"
+&& bash -c "$(curl -fsSL https://raw.githubusercontent.com/munsunouk/open-code-review/cursor-agent-adapter/scripts/agent-cloud-install-ocr.sh)"
 ```
 
 스크립트는 기본으로 fork를 shallow clone한 뒤 `/usr/local/bin/ocr`에 빌드합니다.
@@ -27,7 +27,7 @@ fork URL/브랜치를 바꿀 때:
 ```bash
 && OCR_FORK_URL=https://github.com/munsunouk/open-code-review.git \
    OCR_BRANCH=cursor-agent-adapter \
-   bash -c "$(curl -fsSL https://raw.githubusercontent.com/munsunouk/open-code-review/cursor-agent-adapter/scripts/cursor-cloud-install-ocr.sh)"
+   bash -c "$(curl -fsSL https://raw.githubusercontent.com/munsunouk/open-code-review/cursor-agent-adapter/scripts/agent-cloud-install-ocr.sh)"
 ```
 
 ## 방법 2: multi-repo — open-code-review를 두 번째 repo로 추가
@@ -41,7 +41,7 @@ eggtranslate만으로 리뷰 대상이 부족하지 않고, **항상 같은 fork
 
 ```bash
 pnpm install \
-  && OCR_SOURCE=checkout OCR_REPO_DIR=open-code-review bash -c "$(curl -fsSL https://raw.githubusercontent.com/munsunouk/open-code-review/cursor-agent-adapter/scripts/cursor-cloud-install-ocr.sh)"
+  && OCR_SOURCE=checkout OCR_REPO_DIR=open-code-review bash -c "$(curl -fsSL https://raw.githubusercontent.com/munsunouk/open-code-review/cursor-agent-adapter/scripts/agent-cloud-install-ocr.sh)"
 ```
 
 `OCR_REPO_DIR`은 VM에서 `open-code-review`가 checkout된 상대 경로입니다.
@@ -52,7 +52,7 @@ eggtranslate 저장소에 커밋해 팀 전체가 같은 Cloud 설정을 쓰게 
 
 ```json
 {
-  "install": "pnpm install && bash -c \"$(curl -fsSL https://raw.githubusercontent.com/munsunouk/open-code-review/cursor-agent-adapter/scripts/cursor-cloud-install-ocr.sh)\""
+  "install": "pnpm install && bash -c \"$(curl -fsSL https://raw.githubusercontent.com/munsunouk/open-code-review/cursor-agent-adapter/scripts/agent-cloud-install-ocr.sh)\""
 }
 ```
 
@@ -91,7 +91,7 @@ Cursor plugin/skill을 쓰려면 fork의 Cursor plugin을 marketplace에 추가�
 eggtranslate의 `AGENTS.md`에 host-agent 리뷰 절차를 적어 두세요.
 
 ```markdown
-## Cursor Cloud specific instructions
+## Agent Cloud specific instructions
 
 Code review: run `ocr agent prepare --format json`, review, then
 `ocr agent validate-comments` and `ocr agent report`. No OCR LLM API key required.
@@ -103,10 +103,11 @@ Code review: run `ocr agent prepare --format json`, review, then
 |---|---|---|
 | 출처 | upstream 릴리스 바이너리 | `munsunouk/open-code-review@cursor-agent-adapter` |
 | Cursor adapter 변경 | 반영 안 됨 | fork 브랜치 그대로 반영 |
-| Cloud install | `npm install -g …` | `scripts/cursor-cloud-install-ocr.sh` |
+| Cloud install | `npm install -g …` | `scripts/agent-cloud-install-ocr.sh` |
 
 ## 스크립트 위치
 
-[`scripts/cursor-cloud-install-ocr.sh`](../scripts/cursor-cloud-install-ocr.sh)
+Canonical: [`scripts/agent-cloud-install-ocr.sh`](../scripts/agent-cloud-install-ocr.sh)
+Compatibility wrappers: [`scripts/cursor-cloud-install-ocr.sh`](../scripts/cursor-cloud-install-ocr.sh), [`scripts/codex-cloud-install-ocr.sh`](../scripts/codex-cloud-install-ocr.sh)
 
 환경 변수: `OCR_SOURCE`, `OCR_FORK_URL`, `OCR_BRANCH`, `OCR_REPO_DIR`, `OCR_INSTALL_DIR`.

@@ -1074,6 +1074,17 @@ func TestAgentContextHelpDoesNotRequireBundle(t *testing.T) {
 	}
 }
 
+func TestAgentPrepareHelpShowsActualBundleDefault(t *testing.T) {
+	var output bytes.Buffer
+	err := runAgentWithWriter([]string{"prepare", "--help"}, &output)
+	if err != nil {
+		t.Fatalf("prepare help: %v", err)
+	}
+	if !strings.Contains(output.String(), "4194304 (4 MiB)") {
+		t.Fatalf("prepare help output = %q", output.String())
+	}
+}
+
 func TestAgentSkillsUseHostAgentWorkflow(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join("..", ".."))
 	paths := []string{
