@@ -9,22 +9,21 @@ matches who performs review reasoning.
 
 ## Host-agent CI (no OCR LLM)
 
-When a **CI-hosted agent** (or a human following the skill workflow) authors
-findings, OCR only prepares bundles and validates comments — **no `OCR_LLM_*`
-secrets**:
+When a **CI-hosted agent** authors findings, OCR only prepares bundles and
+validates comments. The upstream workflow builds `ocr` from a **trusted
+checkout** (not legacy npm 1.x) and runs:
 
 ```bash
-ocr agent prepare --from "origin/${BASE}" --to "origin/${HEAD}" \
-  --format json --output bundle.json
-# Host agent writes agent-review-comments/v1 JSON, then:
-ocr agent validate-comments --bundle bundle.json --comments comments.json \
-  --output validation.json
-ocr agent report --bundle bundle.json --comments comments.json \
-  --validation validation.json --format markdown --output report.md
+bash scripts/github-actions/prepare-agent-bundle.sh "${BASE}" "${HEAD}" bundle.json
+bash scripts/github-actions/run-host-agent-review.sh
 ```
 
-Inspect `partial` on scan/split manifests. Exit code **2** from
-`validate-comments` means invalid findings (not infrastructure failure).
+Inside `run-host-agent-review.sh`: `generate-agent-comments.js` (CI LLM) →
+`validate-comments` → `report`. Large PRs retry prepare with `--split` and
+iterate manifest bundles.
+
+Required secrets: `HOST_AGENT_LLM_URL` / `HOST_AGENT_LLM_AUTH_TOKEN` (or
+`OCR_LLM_*` fallbacks). **No `ocr config set llm.*`** on this path.
 
 See [Agent Skill](../agent-skill/) and [Migration](../../migration/).
 
@@ -91,19 +90,12 @@ The upstream workflow lives at
 ### What it does
 
 - Triggers on `pull_request_target` (`opened`) **and** `issue_comment` events
-  whose body starts with `/open-code-review` or `@open-code-review` —
-  the latter lets reviewers re-run OCR on demand by commenting on a PR.
-  (`pull_request_target` is used instead of `pull_request` so that
-  secrets are available even for PRs opened from forks; OCR only reads
-  the diff and does not execute code from the PR.)
-- Installs OCR via `npm install -g @alibaba-group/open-code-review`,
-  writes config with `ocr config set`, then runs the core command in
-  branch-range mode.
-- Parses the JSON envelope and posts each finding as an inline review
-  comment via the GitHub Pull Request Review API. Comments without
-  line info are folded into the summary body. If batch submission
-  fails, it falls back to posting comments one-by-one and surfaces
-  statistics in a summary comment.
+  whose body starts with `/open-code-review` or `@open-code-review`.
+- **Host-agent path:** builds `ocr` from a trusted checkout with Go, runs
+  `prepare-agent-bundle.sh` (with `--split` fallback), then
+  `run-host-agent-review.sh` to generate `agent-review-comments/v1`, validate,
+  and post findings.
+- Parses the comments JSON and posts each finding as an inline review comment.
 
 ### Install
 
@@ -121,10 +113,15 @@ Set under **Settings → Secrets and variables → Actions**:
 
 | Secret | Required | Description |
 |---|---|---|
-| `OCR_LLM_URL` | Yes | LLM API endpoint (e.g. `https://api.openai.com/v1/chat/completions`). |
-| `OCR_LLM_AUTH_TOKEN` | Yes | Authentication token for the LLM API. This CI secret is passed to `ocr config set llm.auth_token`. (OCR's direct env var is `OCR_LLM_TOKEN`, not `OCR_LLM_AUTH_TOKEN`.) |
-| `OCR_LLM_MODEL` | No | Model name. No default — must be set explicitly. |
-| `OCR_LLM_USE_ANTHROPIC` | No | Set to `true` for Anthropic Claude models. |
+| `HOST_AGENT_LLM_URL` | Yes* | CI host LLM endpoint for `generate-agent-comments.js`. |
+| `HOST_AGENT_LLM_AUTH_TOKEN` | Yes* | Token for the CI host LLM. |
+| `HOST_AGENT_LLM_MODEL` | No | Model name (default in script: `gpt-4o`). |
+| `HOST_AGENT_LLM_USE_ANTHROPIC` | No | Set to `true` for Anthropic endpoints. |
+
+\*Legacy names `OCR_LLM_URL`, `OCR_LLM_AUTH_TOKEN`, `OCR_LLM_MODEL`, and
+`OCR_LLM_USE_ANTHROPIC` still work as fallbacks.
+
+For the **native OCR** path below, use `OCR_LLM_*` with `ocr config set` instead.
 
 `GITHUB_TOKEN` is auto-provided; the workflow declares
 `pull-requests: write` so it can post review comments.

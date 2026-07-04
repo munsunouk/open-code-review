@@ -4,6 +4,7 @@
 const assert = require("assert");
 const {
   buildPrompt,
+  callAnthropic,
   extractJsonText,
   normalizeComments,
   COMMENTS_SCHEMA,
@@ -14,6 +15,13 @@ const {
 
 const sampleBundle = {
   bundle_id: "sha256:sample",
+  rules: {
+    default: {
+      source: "system",
+      pattern: "**/*",
+      content: "Always check bounds before indexing.",
+    },
+  },
   files: [
     {
       path: "main.go",
@@ -31,6 +39,7 @@ const sampleBundle = {
 
 assert.match(buildPrompt(sampleBundle), /sha256:sample/);
 assert.match(buildPrompt(sampleBundle), /main.go/);
+assert.match(buildPrompt(sampleBundle), /Always check bounds before indexing/);
 assert.ok(buildPrompt(sampleBundle).includes(EVIDENCE_BEGIN));
 assert.ok(buildPrompt(sampleBundle).includes(EVIDENCE_END));
 assert.doesNotMatch(buildPrompt(sampleBundle), /skip.go/);
@@ -78,4 +87,34 @@ require("fs").writeFileSync(
 );
 assert.strictEqual(loadBundleDocument(manifestPath).bundle_id, "sha256:sample");
 
-console.log("generate-agent-comments tests passed");
+async function testAnthropicRequestIncludesTokenCap() {
+  const originalFetch = global.fetch;
+  let requestBody;
+  global.fetch = async (_url, init) => {
+    requestBody = JSON.parse(init.body);
+    return {
+      ok: true,
+      json: async () => ({ content: [{ type: "text", text: "{}" }] }),
+    };
+  };
+  try {
+    await callAnthropic({
+      url: "https://example.test/messages",
+      token: "token",
+      model: "claude-test",
+      prompt: "review",
+    });
+  } finally {
+    global.fetch = originalFetch;
+  }
+  assert.strictEqual(requestBody.max_tokens, 8192);
+}
+
+testAnthropicRequestIncludesTokenCap()
+  .then(() => {
+    console.log("generate-agent-comments tests passed");
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

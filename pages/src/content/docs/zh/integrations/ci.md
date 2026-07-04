@@ -4,6 +4,25 @@ sidebar:
   order: 4
 ---
 
+在每个 Pull Request 或 Merge Request 上运行 OCR。按谁执行评审推理选择集成路径。
+
+## Host-agent CI（无需 OCR LLM）
+
+CI 中的 **host agent** 编写 findings 时，OCR 只准备 bundle 并校验评论。上游 workflow 从**可信 checkout 用 Go 构建 `ocr`**（非旧版 npm），并运行：
+
+```bash
+bash scripts/github-actions/prepare-agent-bundle.sh "${BASE}" "${HEAD}" bundle.json
+bash scripts/github-actions/run-host-agent-review.sh
+```
+
+所需 secret：`HOST_AGENT_LLM_URL` / `HOST_AGENT_LLM_AUTH_TOKEN`（或 `OCR_LLM_*` 回退）。此路径**不需要** `ocr config set llm.*`。
+
+见 [Agent Skill](../agent-skill/) 与 [Migration](../../migration/)。
+
+## 原生 OCR CI（LLM 驱动）
+
+以下配方使用 **`ocr review`** 与 OCR 配置的 LLM，需要 LLM 凭据。
+
 在每个 Pull Request 或 Merge Request 上运行 OCR。上游仓库提供两条现成流水线，
 你复制并配置即可——一条 GitHub Actions，一条 GitLab CI。两者都是
 [Direct Subprocess](../subprocess/)中核心命令的薄包装。

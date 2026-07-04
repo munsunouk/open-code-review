@@ -4,6 +4,25 @@ sidebar:
   order: 4
 ---
 
+すべての Pull Request または Merge Request で OCR を実行します。レビュー推論を誰が行うかに応じて統合パスを選びます。
+
+## Host-agent CI（OCR LLM 不要）
+
+**CI 上の host agent** が findings を書く場合、OCR は bundle 準備と検証のみです。上流 workflow は**信頼できる checkout から Go で `ocr` をビルド**し、次を実行します：
+
+```bash
+bash scripts/github-actions/prepare-agent-bundle.sh "${BASE}" "${HEAD}" bundle.json
+bash scripts/github-actions/run-host-agent-review.sh
+```
+
+必要な secret：`HOST_AGENT_LLM_URL` / `HOST_AGENT_LLM_AUTH_TOKEN`（または `OCR_LLM_*` フォールバック）。このパスでは `ocr config set llm.*` は**不要**です。
+
+[Agent Skill](../agent-skill/) と [Migration](../../migration/) を参照。
+
+## ネイティブ OCR CI（LLM 駆動）
+
+以下のレシピは **`ocr review`** と OCR の LLM 設定を使います。
+
 すべての Pull Request または Merge Request で OCR を実行します。上流リポジトリは、コピーして設定するだけのすぐ使える 2 つのパイプラインを提供しています——1 つは GitHub Actions、もう 1 つは GitLab CI です。どちらも
 [Direct Subprocess](../subprocess/)にある中核コマンドの薄いラッパーです。
 

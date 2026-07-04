@@ -42,17 +42,16 @@ generate_for_bundle_file() {
 validate_comments() {
 	local comments_file="$1"
 	local validation_file="$2"
-	if ! ocr agent validate-comments \
+	ocr agent validate-comments \
 		--bundle "${BUNDLE_PATH}" \
 		--comments "${comments_file}" \
-		--output "${validation_file}"; then
-		local exit_code=$?
-		if [ "${exit_code}" -eq 2 ]; then
-			echo "run-host-agent-review: validation failed for ${comments_file}" >&2
-			cat "${validation_file}" 2>/dev/null || true
-		fi
-		return "${exit_code}"
+		--output "${validation_file}" && return 0
+	local exit_code=$?
+	if [ "${exit_code}" -eq 2 ]; then
+		echo "run-host-agent-review: validation failed for ${comments_file}" >&2
+		cat "${validation_file}" 2>/dev/null || true
 	fi
+	return "${exit_code}"
 }
 
 count="$(bundle_count)"
@@ -65,18 +64,25 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
 comment_parts=()
-validation_parts=()
+report_parts=()
 
 if is_manifest; then
 	for index in $(seq 0 $((count - 1))); do
 		slice="${tmpdir}/bundle-${index}.json"
 		comments="${tmpdir}/comments-${index}.json"
 		validation="${tmpdir}/validation-${index}.json"
+		report="${tmpdir}/report-${index}.md"
 		write_slice_bundle "${index}" "${slice}"
 		generate_for_bundle_file "${slice}" "${comments}"
 		validate_comments "${comments}" "${validation}"
+		ocr agent report \
+			--bundle "${slice}" \
+			--comments "${comments}" \
+			--validation "${validation}" \
+			--format markdown \
+			--output "${report}"
 		comment_parts+=("${comments}")
-		validation_parts+=("${validation}")
+		report_parts+=("${report}")
 	done
 	jq -s \
 		'{
@@ -90,23 +96,14 @@ if is_manifest; then
 			warnings: ([.[].warnings] | add)
 		}' \
 		"${comment_parts[@]}" >"${COMMENTS_PATH}"
-	jq -s \
-		'{
-			schema_version: .[0].schema_version,
-			bundle_id: .[0].bundle_id,
-			valid: ([.[] | .valid] | all),
-			errors: ([.[].errors] | add),
-			warnings: ([.[].warnings] | add)
-		}' \
-		"${validation_parts[@]}" >"${VALIDATION_PATH}"
+	cat "${report_parts[@]}" >"${REPORT_PATH}"
 else
 	generate_for_bundle_file "${BUNDLE_PATH}" "${COMMENTS_PATH}"
 	validate_comments "${COMMENTS_PATH}" "${VALIDATION_PATH}"
+	ocr agent report \
+		--bundle "${BUNDLE_PATH}" \
+		--comments "${COMMENTS_PATH}" \
+		--validation "${VALIDATION_PATH}" \
+		--format markdown \
+		--output "${REPORT_PATH}"
 fi
-
-ocr agent report \
-	--bundle "${BUNDLE_PATH}" \
-	--comments "${COMMENTS_PATH}" \
-	--validation "${VALIDATION_PATH}" \
-	--format markdown \
-	--output "${REPORT_PATH}"
