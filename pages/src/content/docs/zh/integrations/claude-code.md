@@ -57,10 +57,8 @@ markdown prompt），上面的文件复制方法就是安装路径：把 `open-c
 放进你的 agent 读取命令的目录，按你的 agent 调用命令的方式调用它。prompt 正文
 与 agent 无关——它只告诉模型选哪些 `ocr` 参数以及如何分级输出。
 
-> **前置条件：** 首次运行时命令会自行安装 `ocr` CLI
-> （通过 `npm install -g @alibaba-group/open-code-review`），前提是二进制不在
-> `PATH` 上。你**确实**需要预先配置好 LLM——若 `ocr llm test` 连不上，命令会
-> 失败。见[配置](../../configuration/)。
+> **前置条件：** `ocr` CLI 需在 `PATH` 上。**默认 host-agent 路径不需要 OCR LLM。**
+> 仅在你显式使用 legacy `ocr review` 时才需配置 LLM。
 
 ## 使用
 
@@ -73,27 +71,15 @@ markdown prompt），上面的文件复制方法就是安装路径：把 `open-c
 /open-code-review:review focus on race conditions in commit abc123
 ```
 
-prompt 解析你的请求并选择正确的 `ocr review` 参数：无参数 → 工作区模式
-（staged + unstaged + untracked），提到 commit → `--commit`，提到分支区间 →
-`--from` / `--to`。你也可以直接透传 OCR 参数
-（如 `/open-code-review:review --commit abc123` 或 `--from main --to feature`）。
+prompt 根据你的请求推断 `ocr agent prepare` 参数：无参数 → 工作区；commit → `--commit`；分支区间 → `--from` / `--to`。
 
 ## 命令做什么
 
-命令 prompt 很短——三步：
-
-1. **运行评审。** 用从你请求推断的参数调用 `ocr review --audience agent`
-   （描述了需求上下文时加可选 `--background`）。若 `ocr` 二进制不在 `PATH`，
-   命令通过 `npm i -g @alibaba-group/open-code-review` 自动安装并继续。输出在 5
-   分钟超时内捕获。
-2. **过滤与评估。** 把每条评论分为 **High** / **Medium** / **Low**。低置信
-   （疑似误报、吹毛求疵、缺上下文）评论被静默丢弃；其余展示。
-3. **修复。** 对值得采纳的 High/Medium 项自动应用修复。与
-   [Agent Skill](../agent-skill/) 不同，此命令**默认自动修复**——它是“评审并
-   清理”工作流的合适选择，而非“给我看 diff”工作流。
-
-若你想让命令在修改代码前先询问，或收紧分级标准，编辑你本地的 prompt 副本。Claude
-Code 每次调用都重新读取命令，因此无需重启。
+1. **`ocr agent prepare`** — 构建确定性 bundle（5 分钟超时）。
+2. **评审** — Claude 编写 `agent-review-comments/v1`（可选用 `ocr agent context`）。
+3. **`ocr agent validate-comments`** — 退出码 **2** 表示无效，勿生成报告。
+4. **`ocr agent report`** — 校验通过后渲染 Markdown。
+5. **修复** — 用户要求时自动修复高置信度问题（**默认自动修复**，与 [Agent Skill](../agent-skill/) 不同）。
 
 ## 另见
 

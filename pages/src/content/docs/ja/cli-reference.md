@@ -45,6 +45,7 @@ GitHub: https://github.com/alibaba/open-code-review
 | コマンド | エイリアス | 役割 |
 |---|---|---|
 | `ocr review` | `ocr r` | コードレビューを実行してコメントを出力します。 |
+| `ocr agent` | — | Host-agent の bundle、コンテキスト、検証、レポート（OCR LLM 不要）。 |
 | `ocr rules check <file>` | — | あるファイルパスにどのルールが適用され、その出所はどこかを表示します。 |
 | `ocr config set <key> <value>` | — | 設定値を `~/.opencodereview/config.json` に永続化します。 |
 | `ocr config unset custom_providers.<name>` | — | カスタムプロバイダーを削除します（現在有効なものであれば、有効な `provider`/`model` もクリアされます）。 |
@@ -56,6 +57,33 @@ GitHub: https://github.com/alibaba/open-code-review
 | `ocr version` | — | バージョン、commit、プラットフォーム、ビルド日、GitHub URL を出力します。 |
 
 `ocr` および `ocr -h` はトップレベルの使い方を出力します。各サブコマンドも `-h` / `--help` を受け付けます。
+
+## `ocr agent`
+
+決定論的 host-agent ワークフロー。OCR は不変 bundle を準備し、ターゲット対応のコンテキストを提供し、外部で作成された findings を検証してレポートを生成します。**OCR LLM は不要**です——host agent（Cursor、Codex、CI スクリプトなど）が推論し `agent-review-comments/v1` JSON を書きます。
+
+### サブコマンド
+
+| サブコマンド | 目的 |
+|---|---|
+| `prepare` | レビュー bundle または scan/split manifest を構築。 |
+| `validate-comments` | bundle 証拠に対してコメント JSON を検証。 |
+| `report` | 検証済みコメントから Markdown/text/JSON を生成（`--validation` 必須）。 |
+| `context read\|find\|diff\|search` | LLM なしの読み取り専用コンテキスト。 |
+
+### 典型的なパイプライン
+
+```bash
+ocr agent prepare --from main --to HEAD --format json --output bundle.json
+# Host agent が comments.json（agent-review-comments/v1）を作成
+ocr agent validate-comments --bundle bundle.json --comments comments.json --output validation.json
+ocr agent report --bundle bundle.json --comments comments.json \
+  --validation validation.json --format markdown --output report.md
+```
+
+終了コード：検証失敗時 `validate-comments` は **2**（JSON は書き込まれる場合あり）。インフラエラーは **1**。
+
+[Agent Skill](../integrations/agent-skill/) と [Migration](../migration/) を参照。
 
 ## `ocr review`
 

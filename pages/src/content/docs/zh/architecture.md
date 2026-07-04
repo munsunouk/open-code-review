@@ -4,8 +4,34 @@ sidebar:
   order: 8
 ---
 
-从你按下回车到 JSON 落在终端，`ocr review` 内部实际如何运作的导览。旨在帮你
-建立足够的心智模型，以调试行为、调优参数，并有把握地阅读源码。
+从你按下回车到输出落地，`ocr review` 与 **`ocr agent`（host-agent，Skill 默认路径）**
+内部如何运作的导览。旨在帮你建立足够的心智模型，以调试行为、调优参数，并有把握地阅读源码。
+
+## Host-agent 流水线（`ocr agent`）
+
+```mermaid
+flowchart TD
+    A["<b>Host agent</b><br/>(Cursor、Codex、CI 脚本等)"]
+    B["<b>ocr agent prepare</b><br/>确定性 bundle / manifest"]
+    C["<b>Host 推理</b><br/>编写 agent-review-comments/v1 JSON"]
+    D["<b>ocr agent validate-comments</b><br/>证据与新鲜度校验"]
+    E["<b>ocr agent report</b><br/>Markdown / text / JSON"]
+    F["<b>ocr agent context</b><br/>可选只读仓库上下文"]
+
+    A --> B
+    B --> F
+    F --> C
+    B --> C
+    C --> D --> E
+```
+
+此路径 **不调用** OCR 配置的 LLM。实现位于
+[`internal/reviewbundle/`](https://github.com/alibaba/open-code-review/blob/main/internal/reviewbundle/)
+与 [`cmd/opencodereview/agent_*.go`](https://github.com/alibaba/open-code-review/tree/main/cmd/opencodereview)。
+
+本仓库的 GitHub Actions 使用相同模型：`ocr agent prepare` → CI host LLM 脚本 → `validate-comments` → PR 评论。
+
+## 原生 OCR LLM 流水线（`ocr review`）
 
 ## 高层流水线
 

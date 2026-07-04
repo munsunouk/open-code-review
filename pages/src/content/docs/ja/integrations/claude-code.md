@@ -52,8 +52,8 @@ curl -o ~/.claude/commands/open-code-review.md \
 
 コマンドファイルは単一の frontmatter フィールドを持つ純粋な markdown です——Claude Code 固有の内容は一切含まれていません。あなたの agent が同様の **command** 規約（ディレクトリから呼び出し可能なコマンドとしてロードされる markdown prompt）をサポートしている場合、上記のファイルコピー方法がインストール経路になります。`open-code-review.md` を agent がコマンドを読み込むディレクトリに配置し、agent のコマンド呼び出し方法に従って呼び出してください。prompt 本文は agent に依存しません——モデルに対して、どの `ocr` 引数を選び、出力をどのように分類するかを伝えるだけです。
 
-> **前提条件：** 初回実行時、バイナリが `PATH` 上に存在しない場合、コマンドは
-> （`npm install -g @alibaba-group/open-code-review` を通じて）`ocr` CLI を自動的にインストールします。ただし、LLM は事前に設定しておく**必要があります**——`ocr llm test` が接続できない場合、コマンドは失敗します。[設定](../../configuration/)を参照してください。
+> **前提条件：** `ocr` CLI が `PATH` 上にあること。**デフォルトの host-agent パスでは OCR LLM は不要です。**
+> legacy `ocr review` を明示的に使う場合のみ LLM を設定してください。
 
 ## 使い方
 
@@ -65,21 +65,15 @@ Claude Code でコマンドを名前で呼び出します。plugin marketplace �
 /open-code-review:review focus on race conditions in commit abc123
 ```
 
-prompt はあなたのリクエストを解析し、正しい `ocr review` 引数を選択します。引数なし → 作業領域モード（staged + unstaged + untracked）、commit の言及 → `--commit`、ブランチ区間の言及 →
-`--from` / `--to`。OCR の引数を直接透過的に渡すこともできます
-（例：`/open-code-review:review --commit abc123` や `--from main --to feature`）。
+prompt はリクエストから `ocr agent prepare` の引数を推論します（作業領域、`--commit`、`--from` / `--to`）。
 
 ## コマンドが行うこと
 
-コマンドの prompt はとても短く、3 ステップです。
-
-1. **レビューの実行。** あなたのリクエストから推論した引数を用いて `ocr review --audience agent`
-   を呼び出します（要件コンテキストが記述されている場合はオプションの `--background` を追加）。`ocr` バイナリが `PATH` 上に無い場合、コマンドは `npm i -g @alibaba-group/open-code-review` を通じて自動インストールして続行します。出力は 5 分のタイムアウト内で取得されます。
-2. **フィルタリングと評価。** 各コメントを **High** / **Medium** / **Low** に分類します。低信頼度（誤検知の疑い、些細な指摘、コンテキスト不足）のコメントは黙って破棄され、その他は表示されます。
-3. **修正。** 採用すべき High/Medium 項目に対して修正を自動的に適用します。
-   [Agent Skill](../agent-skill/) と異なり、このコマンドは**デフォルトで自動修正します**——「レビューして片付ける」ワークフローには適した選択であり、「diff を見せてほしい」ワークフローには向きません。
-
-コマンドがコードを変更する前に尋ねるようにしたい場合や、分類基準を厳しくしたい場合は、ローカルの prompt コピーを編集してください。Claude Code は呼び出しのたびにコマンドを読み直すため、再起動は不要です。
+1. **`ocr agent prepare`** — 決定論的 bundle を構築（5 分タイムアウト）。
+2. **レビュー** — Claude が `agent-review-comments/v1` を作成（必要なら `ocr agent context`）。
+3. **`ocr agent validate-comments`** — 終了コード **2** は無効なコメント。
+4. **`ocr agent report`** — 検証成功後に Markdown を生成。
+5. **修正** — ユーザーが依頼した場合、高信頼度の問題を自動修正（[Agent Skill](../agent-skill/) とは異なり**デフォルトで自動修正**）。
 
 ## 関連項目
 

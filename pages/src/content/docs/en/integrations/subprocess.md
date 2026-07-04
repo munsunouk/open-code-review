@@ -15,6 +15,21 @@ back to the PR / MR. Use this page directly when you're calling OCR
 from a custom script, a LangChain tool, or any other framework that
 isn't already covered.
 
+## Host-agent pipeline (recommended)
+
+```bash
+ocr agent prepare --from origin/main --to HEAD --format json --output bundle.json
+# Your agent authors comments.json (agent-review-comments/v1)
+ocr agent validate-comments --bundle bundle.json --comments comments.json --output validation.json
+ocr agent report --bundle bundle.json --comments comments.json \
+  --validation validation.json --format markdown
+```
+
+No OCR LLM credentials are required. See [Agent Skill](../agent-skill/) for the
+full workflow.
+
+## Legacy native OCR (`ocr review`)
+
 ## Bash
 
 ```bash

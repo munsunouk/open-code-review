@@ -45,6 +45,7 @@ GitHub: https://github.com/alibaba/open-code-review
 | 命令 | 别名 | 作用 |
 |---|---|---|
 | `ocr review` | `ocr r` | 运行代码评审并输出评论。 |
+| `ocr agent` | — | Host-agent bundle、上下文、校验与报告（无需 OCR LLM）。 |
 | `ocr rules check <file>` | — | 显示某文件路径适用哪条规则及其来源。 |
 | `ocr config set <key> <value>` | — | 将一个配置值持久化到 `~/.opencodereview/config.json`。 |
 | `ocr config unset custom_providers.<name>` | — | 删除一个自定义 provider（若它是当前启用的，则清空启用的 `provider`/`model`）。 |
@@ -56,6 +57,33 @@ GitHub: https://github.com/alibaba/open-code-review
 | `ocr version` | — | 打印版本、commit、平台、构建日期与 GitHub URL。 |
 
 `ocr` 和 `ocr -h` 打印顶层用法。每个子命令也接受 `-h` / `--help`。
+
+## `ocr agent`
+
+确定性 host-agent 工作流。OCR 准备不可变 bundle、提供目标感知上下文、校验外部编写的 findings，并渲染报告。**这些命令不需要 OCR LLM**——host agent（Cursor、Codex、CI 脚本等）负责推理并编写 `agent-review-comments/v1` JSON。
+
+### 子命令
+
+| 子命令 | 用途 |
+|---|---|
+| `prepare` | 构建评审 bundle 或 scan/split manifest。 |
+| `validate-comments` | 对照 bundle 证据校验评论 JSON。 |
+| `report` | 从已校验评论渲染 Markdown/text/JSON（需要 `--validation`）。 |
+| `context read\|find\|diff\|search` | 无 LLM 的只读仓库上下文。 |
+
+### 典型流水线
+
+```bash
+ocr agent prepare --from main --to HEAD --format json --output bundle.json
+# Host agent 编写 comments.json（agent-review-comments/v1）
+ocr agent validate-comments --bundle bundle.json --comments comments.json --output validation.json
+ocr agent report --bundle bundle.json --comments comments.json \
+  --validation validation.json --format markdown --output report.md
+```
+
+退出码：`validate-comments` 校验失败时返回 **2**（仍可能写入 JSON）；基础设施错误为 **1**。
+
+详见 [Agent Skill](../integrations/agent-skill/) 与 [Migration](../migration/)。
 
 ## `ocr review`
 

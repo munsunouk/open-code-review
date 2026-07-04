@@ -4,7 +4,34 @@ sidebar:
   order: 8
 ---
 
-あなたが Enter キーを押してから JSON がターミナルに出力されるまで、`ocr review` が内部で実際にどう動くかのガイドです。挙動をデバッグし、引数をチューニングし、自信を持ってソースコードを読めるだけの十分なメンタルモデルを構築することを目的としています。
+あなたが Enter キーを押してから出力がターミナルに現れるまで、**`ocr agent`（host-agent、Skill のデフォルト）** と
+**`ocr review`（ネイティブ OCR LLM）** が内部でどう動くかのガイドです。挙動のデバッグ、フラグ調整、ソースコードの読解に役立つメンタルモデルを提供します。
+
+## Host-agent パイプライン（`ocr agent`）
+
+```mermaid
+flowchart TD
+    A["<b>Host agent</b><br/>(Cursor、Codex、CI スクリプトなど)"]
+    B["<b>ocr agent prepare</b><br/>決定論的 bundle / manifest"]
+    C["<b>Host 推論</b><br/>agent-review-comments/v1 JSON を作成"]
+    D["<b>ocr agent validate-comments</b><br/>証拠と鮮度チェック"]
+    E["<b>ocr agent report</b><br/>Markdown / text / JSON"]
+    F["<b>ocr agent context</b><br/>任意の読み取り専用コンテキスト"]
+
+    A --> B
+    B --> F
+    F --> C
+    B --> C
+    C --> D --> E
+```
+
+このパスでは OCR の設定済み LLM は **呼ばれません**。実装は
+[`internal/reviewbundle/`](https://github.com/alibaba/open-code-review/blob/main/internal/reviewbundle/)
+と [`cmd/opencodereview/agent_*.go`](https://github.com/alibaba/open-code-review/tree/main/cmd/opencodereview) にあります。
+
+本リポジトリの GitHub Actions も同じモデルです：`ocr agent prepare` → CI host LLM → `validate-comments` → PR コメント。
+
+## ネイティブ OCR LLM パイプライン（`ocr review`）
 
 ## 高レベルのパイプライン
 
