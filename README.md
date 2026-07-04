@@ -433,6 +433,7 @@ See the [`examples/`](./examples/) directory for integration examples:
 
 | Command | Alias | Description |
 |---------|-------|-------------|
+| `ocr agent` | — | Deterministic host-agent bundle, context, validation, and report tooling |
 | `ocr review` | `ocr r` | Start a diff-based code review |
 | `ocr scan` | `ocr s` | Review whole files (no diff required) |
 | `ocr rules check <file>` | — | Preview which review rule applies to a file path |

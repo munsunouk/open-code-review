@@ -57,6 +57,9 @@ func Prepare(ctx context.Context, options PrepareOptions) (*Bundle, []byte, erro
 			),
 		}
 	}
+	if err := validateProtocolDocumentSize(encoded); err != nil {
+		return nil, nil, err
+	}
 	return bundle, encoded, nil
 }
 

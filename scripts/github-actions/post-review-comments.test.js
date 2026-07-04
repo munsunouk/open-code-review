@@ -90,7 +90,7 @@ function mockGithub(options) {
         },
       },
       issues: {
-        listComments: async () => ({ data: [], headers: {} }),
+        listComments: async () => ({ data: options.existingIssueComments || [], headers: {} }),
         createComment: async (params) => {
           issueComments.push(params);
           return { data: {} };
@@ -223,49 +223,36 @@ async function testUnknownPostedIdsAreSummarized(workflowPath) {
   assert.match(body, /posting status unknown/);
 }
 
-function testSummaryTagIdempotencyMatcher() {
-  const tag = "<!-- ocr-summary-run:42-1:deadbeef -->";
-  const matcher = (comments, id, requireActionsBot = false) =>
-    comments.some((c) => {
-      if (requireActionsBot && !(c.user && c.user.type === "Bot" && c.user.login === "github-actions[bot]")) {
-        return false;
-      }
-      const body = c.body || "";
-      if (id.startsWith("<!--")) {
-        return body.startsWith(id);
-      }
-      const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const tagRe = new RegExp("<!--\\s*" + escaped + "\\s*-->");
-      return tagRe.test(body);
-    });
+async function testSummaryTagTrustsOnlyActionsBot(workflowPath) {
+  const result = {
+    comments: [{
+      path: "docs/no-line.md",
+      content: "Summary-only content.",
+      existing_code: "",
+      suggestion_code: "",
+      start_line: 0,
+      end_line: 0,
+    }],
+    warnings: [],
+  };
+  const tag = "<!-- ocr-summary-run:1-1 -->";
+  const cases = [
+    { user: { type: "User", login: "fork-user" }, wantCreated: 1 },
+    { user: { type: "Bot", login: "renovate[bot]" }, wantCreated: 1 },
+    { user: { type: "Bot", login: "github-actions[bot]" }, wantCreated: 0 },
+  ];
 
-  assert.strictEqual(
-    matcher(
-      [{ user: { type: "Bot", login: "github-actions[bot]" }, body: `${tag}\nsummary` }],
-      tag,
-      true
-    ),
-    true,
-    "bot-authored summary tag at body start should match"
-  );
-  assert.strictEqual(
-    matcher(
-      [{ user: { type: "User", login: "fork-user" }, body: `${tag}\nsummary` }],
-      tag,
-      true
-    ),
-    false,
-    "fork user comment must not suppress summary posting"
-  );
-  assert.strictEqual(
-    matcher(
-      [{ user: { type: "Bot", login: "renovate[bot]" }, body: `${tag}\nsummary` }],
-      tag,
-      true
-    ),
-    false,
-    "non-Actions bot comment must not suppress summary posting"
-  );
+  for (const tc of cases) {
+    const github = await runPostReviewScript(workflowPath, {
+      fs: mockFs(JSON.stringify(result), ""),
+      existingIssueComments: [{ user: tc.user, body: `${tag}\nexisting summary` }],
+    });
+    assert.strictEqual(
+      github.issueComments.length,
+      tc.wantCreated,
+      `${workflowPath}: ${tc.user.login} summary suppression mismatch`
+    );
+  }
 }
 
 function testExistingReviewRetryHasGuard(workflowPath) {
@@ -287,10 +274,10 @@ function testSummaryTagIsStable(workflowPath) {
 }
 
 async function main() {
-  testSummaryTagIdempotencyMatcher();
   for (const workflowPath of workflowFiles) {
     testExistingReviewRetryHasGuard(workflowPath);
     testSummaryTagIsStable(workflowPath);
+    await testSummaryTagTrustsOnlyActionsBot(workflowPath);
     await testFailedInlineCommentsAreSummarized(workflowPath);
     await testErrorCommentUsesSafeFence(workflowPath);
     await testUnknownPostedIdsAreSummarized(workflowPath);
