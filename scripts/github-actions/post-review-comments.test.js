@@ -245,6 +245,7 @@ async function testSummaryTagTrustsOnlyActionsBot(workflowPath) {
   for (const tc of cases) {
     const github = await runPostReviewScript(workflowPath, {
       fs: mockFs(JSON.stringify(result), ""),
+      bulkError: "batch review failed",
       existingIssueComments: [{ user: tc.user, body: `${tag}\nexisting summary` }],
     });
     assert.strictEqual(

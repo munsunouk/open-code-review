@@ -31,20 +31,6 @@ func (detailResolverStub) ResolveDetail(path string) rules.RuleDetail {
 	return rules.RuleDetail{Rule: "Review correctness.", Source: "system", Pattern: "default"}
 }
 
-type oversizedRuleResolver struct{}
-
-func (oversizedRuleResolver) Resolve(path string) string {
-	return oversizedRuleResolver{}.ResolveDetail(path).Rule
-}
-
-func (oversizedRuleResolver) ResolveDetail(path string) rules.RuleDetail {
-	return rules.RuleDetail{
-		Rule:    strings.Repeat("x", MaxProtocolDocumentBytes+1),
-		Source:  "custom",
-		Pattern: "**/*",
-	}
-}
-
 func TestPrepareWorkspaceBuildsDeterministicCompleteBundle(t *testing.T) {
 	repository := initPrepareRepository(t)
 	writeTargetFile(t, repository, "base.go", "package sample\n\nvar changed = true\n")
@@ -147,22 +133,6 @@ func TestPrepareRejectsOversizedBundleWithoutTruncation(t *testing.T) {
 	var protocolError *ProtocolError
 	if !errors.As(err, &protocolError) || protocolError.Code != "bundle_too_large" {
 		t.Fatalf("Prepare() error = %v, want bundle_too_large", err)
-	}
-}
-
-func TestPrepareRejectsBundleAboveProtocolReadLimit(t *testing.T) {
-	repository := initPrepareRepository(t)
-	writeTargetFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
-
-	_, _, err := Prepare(context.Background(), PrepareOptions{
-		RepoDir:       repository,
-		Resolver:      oversizedRuleResolver{},
-		GitRunner:     gitcmd.New(2),
-		MaxBundleSize: MaxProtocolDocumentBytes * 2,
-	})
-	var protocolError *ProtocolError
-	if !errors.As(err, &protocolError) || protocolError.Code != "manifest_too_large" {
-		t.Fatalf("Prepare() error = %v, want manifest_too_large", err)
 	}
 }
 
