@@ -227,7 +227,7 @@ function testSummaryTagIdempotencyMatcher() {
   const tag = "<!-- ocr-summary-run:42-1:deadbeef -->";
   const matcher = (comments, id, requireActionsBot = false) =>
     comments.some((c) => {
-      if (requireActionsBot && !(c.user && c.user.type === "Bot" && String(c.user.login || "").endsWith("[bot]"))) {
+      if (requireActionsBot && !(c.user && c.user.type === "Bot" && c.user.login === "github-actions[bot]")) {
         return false;
       }
       const body = c.body || "";
@@ -256,6 +256,15 @@ function testSummaryTagIdempotencyMatcher() {
     ),
     false,
     "fork user comment must not suppress summary posting"
+  );
+  assert.strictEqual(
+    matcher(
+      [{ user: { type: "Bot", login: "renovate[bot]" }, body: `${tag}\nsummary` }],
+      tag,
+      true
+    ),
+    false,
+    "non-Actions bot comment must not suppress summary posting"
   );
 }
 

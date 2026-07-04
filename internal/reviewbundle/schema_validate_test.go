@@ -46,6 +46,19 @@ func TestValidateCommentsDocumentAcceptsLineCommentWithoutFileLevelFlag(t *testi
 	}
 }
 
+func TestValidateCommentsDocumentRejectsZeroLineComment(t *testing.T) {
+	document := []byte(`{
+		"schema_version":"agent-review-comments/v1",
+		"bundle_id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"summary":{"files_reviewed":1,"issues_found":1},
+		"comments":[{"path":"main.go","start_line":0,"end_line":1,"priority":"high","category":"bug","title":"t","content":"c","recommendation":"r","confidence":1}]
+	}`)
+	err := validateCommentsDocument(document)
+	if err == nil || !strings.Contains(err.Error(), "start_line") {
+		t.Fatalf("validateCommentsDocument() error = %v, want line range schema error", err)
+	}
+}
+
 func TestPreparedBundlePassesEmbeddedSchema(t *testing.T) {
 	bundle := validationBundle()
 	bundle.BundleID = ""
@@ -84,5 +97,41 @@ func TestPreparedManifestPassesEmbeddedSchema(t *testing.T) {
 	}
 	if err := validateManifestDocument(encoded); err != nil {
 		t.Fatalf("validateManifestDocument() error = %v", err)
+	}
+}
+
+func TestValidateManifestDocumentRejectsMalformedEmbeddedBundle(t *testing.T) {
+	bundle := validIdentifiedBundle(t)
+	manifest := &ScanManifest{
+		SchemaVersion:   ScanManifestSchemaVersion,
+		ManifestID:      "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+		Root:            "/tmp/repo",
+		TargetHash:      "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		BatchStrategy:   "none",
+		BatchSize:       1,
+		EstimatedTokens: 0,
+		Summary:         bundle.Summary,
+		Partial:         false,
+		SkippedFiles:    []ScanSkippedFile{},
+		Bundles:         []Bundle{*bundle},
+	}
+	encoded, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(encoded, &document); err != nil {
+		t.Fatalf("decode manifest map: %v", err)
+	}
+	bundles := document["bundles"].([]any)
+	firstBundle := bundles[0].(map[string]any)
+	firstBundle["target"] = map[string]any{"mode": "workspace"}
+	malformed, err := json.Marshal(document)
+	if err != nil {
+		t.Fatalf("marshal malformed manifest: %v", err)
+	}
+	err = validateManifestDocument(malformed)
+	if err == nil || !strings.Contains(err.Error(), "target") {
+		t.Fatalf("validateManifestDocument() error = %v, want nested bundle schema error", err)
 	}
 }

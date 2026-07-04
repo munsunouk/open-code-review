@@ -44,7 +44,7 @@ Cursor owns the review. OCR is a deterministic, read-only context and validation
 
    Range and commit context must come from the bundle target, not the current working tree. A `stale_bundle` error requires a fresh prepare.
 
-5. Produce findings using `codex-review-comments/v1`. Each finding needs path, one-based new-file line range (or explicit file-level marker), priority, category, title, evidence-grounded content, recommendation, confidence, and optional exact existing/suggestion code.
+5. Produce findings using `agent-review-comments/v1`. Each finding needs path, one-based new-file line range (or explicit file-level marker), priority, category, title, evidence-grounded content, recommendation, confidence, and optional exact existing/suggestion code.
 6. Perform a second-pass review of every candidate. Remove unsupported claims, verify cross-file evidence, preserve distinct root causes, and deduplicate only semantically equivalent findings. For scan, create a project summary from all successful bundles and list failed/skipped scope.
 7. Save the comments JSON outside the repository unless the user chose a path, then run:
 

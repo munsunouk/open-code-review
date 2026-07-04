@@ -23,5 +23,5 @@
     "quality",
     "automation"
   ],
-  "skills": "../cursor-skills/"
+  "skills": "./cursor-skills/"
 }

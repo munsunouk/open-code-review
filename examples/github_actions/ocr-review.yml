@@ -711,7 +711,7 @@ jobs:
             // degrade gracefully, instead of silently risking a duplicate
             // summary comment.
             function isGitHubActionsBot(user) {
-              return user && user.type === 'Bot' && String(user.login || '').endsWith('[bot]');
+              return user && user.type === 'Bot' && user.login === 'github-actions[bot]';
             }
 
             async function hasIssueCommentWithId({ owner, repo, issueNumber, id, requireActionsBot = false }) {

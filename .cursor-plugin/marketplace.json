@@ -1,0 +1,16 @@
+{
+  "name": "open-code-review",
+  "owner": {
+    "name": "Alibaba"
+  },
+  "metadata": {
+    "description": "Open Code Review plugin marketplace"
+  },
+  "plugins": [
+    {
+      "name": "open-code-review",
+      "source": "plugins/open-code-review",
+      "description": "Cursor-led code reviews using OCR deterministic review bundles"
+    }
+  ]
+}

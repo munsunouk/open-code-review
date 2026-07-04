@@ -999,6 +999,7 @@ func TestAgentSkillsUseHostAgentWorkflow(t *testing.T) {
 func TestCursorPluginUsesAgentWorkflow(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join("..", ".."))
 	manifestPath := filepath.Join(repositoryRoot, "plugins", "open-code-review", ".cursor-plugin", "plugin.json")
+	pluginRoot := filepath.Dir(filepath.Dir(manifestPath))
 	manifest, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", manifestPath, err)
@@ -1014,8 +1015,14 @@ func TestCursorPluginUsesAgentWorkflow(t *testing.T) {
 	if err := json.Unmarshal(manifest, &manifestData); err != nil {
 		t.Fatalf("decode %s: %v", manifestPath, err)
 	}
+	cleanSkillsPath := filepath.Clean(manifestData.Skills)
+	if filepath.IsAbs(cleanSkillsPath) ||
+		cleanSkillsPath == ".." ||
+		strings.HasPrefix(cleanSkillsPath, ".."+string(os.PathSeparator)) {
+		t.Fatalf("%s skills path escapes plugin root: %q", manifestPath, manifestData.Skills)
+	}
 	skillPath := filepath.Join(
-		filepath.Dir(manifestPath),
+		pluginRoot,
 		manifestData.Skills,
 		"open-code-review",
 		"SKILL.md",
@@ -1031,6 +1038,7 @@ func TestCursorPluginUsesAgentWorkflow(t *testing.T) {
 		"ocr agent prepare",
 		"--output <bundle.json>",
 		"--output <validation.json>",
+		"agent-review-comments/v1",
 	} {
 		if !strings.Contains(skillText, fragment) {
 			t.Errorf("%s missing %q", skillPath, fragment)
@@ -1060,6 +1068,29 @@ func TestCursorPluginUsesAgentWorkflow(t *testing.T) {
 	}
 	if strings.Contains(readmeText, "All integration methods require the `ocr` CLI to be installed and an LLM configured") {
 		t.Errorf("%s still requires an LLM for all integrations", readmePath)
+	}
+	marketplacePath := filepath.Join(repositoryRoot, ".cursor-plugin", "marketplace.json")
+	marketplace, err := os.ReadFile(marketplacePath)
+	if err != nil {
+		t.Fatalf("read %s: %v", marketplacePath, err)
+	}
+	var marketplaceData struct {
+		Plugins []struct {
+			Name   string `json:"name"`
+			Source string `json:"source"`
+		} `json:"plugins"`
+	}
+	if err := json.Unmarshal(marketplace, &marketplaceData); err != nil {
+		t.Fatalf("decode %s: %v", marketplacePath, err)
+	}
+	foundPlugin := false
+	for _, plugin := range marketplaceData.Plugins {
+		if plugin.Name == "open-code-review" && plugin.Source == "plugins/open-code-review" {
+			foundPlugin = true
+		}
+	}
+	if !foundPlugin {
+		t.Fatalf("%s does not list plugins/open-code-review", marketplacePath)
 	}
 	for _, path := range []string{
 		filepath.Join(repositoryRoot, "README.ko-KR.md"),
