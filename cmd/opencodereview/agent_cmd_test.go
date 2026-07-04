@@ -615,6 +615,91 @@ func TestAgentContextWriteOutputFile(t *testing.T) {
 	}
 }
 
+func TestAgentPipelinePrepareContextValidateReport(t *testing.T) {
+	repository := initAgentRepository(t)
+	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
+	directory := t.TempDir()
+	bundlePath := filepath.Join(directory, "bundle.json")
+	sessionHome := t.TempDir()
+	t.Setenv("HOME", sessionHome)
+
+	if err := runAgentWithWriter([]string{
+		"prepare",
+		"--repo", repository,
+		"--output", bundlePath,
+		"--session-id", "pipeline-run",
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	bundleContent, err := os.ReadFile(bundlePath)
+	if err != nil {
+		t.Fatalf("read bundle: %v", err)
+	}
+	var bundle reviewbundle.Bundle
+	if err := json.Unmarshal(bundleContent, &bundle); err != nil {
+		t.Fatalf("decode bundle: %v", err)
+	}
+
+	var contextOutput bytes.Buffer
+	if err := runAgentWithWriter([]string{
+		"context", "read",
+		"--repo", repository,
+		"--bundle", bundlePath,
+		"--path", "main.go",
+		"--session-id", "pipeline-run",
+	}, &contextOutput); err != nil {
+		t.Fatalf("context read: %v", err)
+	}
+	var contextResult reviewbundle.ContextResult
+	if err := json.Unmarshal(contextOutput.Bytes(), &contextResult); err != nil {
+		t.Fatalf("decode context: %v", err)
+	}
+	if !strings.Contains(contextResult.Result, "var changed = true") {
+		t.Fatalf("context result = %+v", contextResult)
+	}
+
+	commentsPath := filepath.Join(directory, "comments.json")
+	writeAgentJSON(t, commentsPath, reviewbundle.Comments{
+		SchemaVersion: reviewbundle.CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       reviewbundle.CommentsSummary{FilesReviewed: 1, IssuesFound: 0},
+		Comments:      []reviewbundle.ReviewComment{},
+	})
+	validationPath := filepath.Join(directory, "validation.json")
+	if err := runAgentWithWriter([]string{
+		"validate-comments",
+		"--repo", repository,
+		"--bundle", bundlePath,
+		"--comments", commentsPath,
+		"--output", validationPath,
+		"--session-id", "pipeline-run",
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	reportPath := filepath.Join(directory, "report.md")
+	if err := runAgentWithWriter([]string{
+		"report",
+		"--bundle", bundlePath,
+		"--comments", commentsPath,
+		"--validation", validationPath,
+		"--format", "markdown",
+		"--output", reportPath,
+		"--repo", repository,
+		"--session-id", "pipeline-run",
+	}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("report: %v", err)
+	}
+	reportContent, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatalf("read report: %v", err)
+	}
+	if !strings.Contains(string(reportContent), "Agent Code Review") ||
+		!strings.Contains(string(reportContent), "- Reviewed: 1 file(s)") {
+		t.Fatalf("report missing expected header:\n%s", string(reportContent))
+	}
+}
+
 func TestAgentContextReadRejectsPathEscape(t *testing.T) {
 	repository := initAgentRepository(t)
 	writeAgentFile(t, repository, "main.go", "package sample\n\nvar changed = true\n")
@@ -975,6 +1060,17 @@ func TestAgentDispatchIsNotRegistered(t *testing.T) {
 	err := dispatch()
 	if err == nil || !strings.Contains(err.Error(), "unknown command: codex") {
 		t.Fatalf("dispatch() error = %v, want unknown command", err)
+	}
+}
+
+func TestAgentContextHelpDoesNotRequireBundle(t *testing.T) {
+	var output bytes.Buffer
+	err := runAgentWithWriter([]string{"context", "--help"}, &output)
+	if err != nil {
+		t.Fatalf("context help: %v", err)
+	}
+	if !strings.Contains(output.String(), "ocr agent context read --bundle FILE") {
+		t.Fatalf("context help output = %q", output.String())
 	}
 }
 

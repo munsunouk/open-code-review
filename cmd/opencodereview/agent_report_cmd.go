@@ -3,10 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/open-code-review/open-code-review/internal/reviewbundle"
@@ -34,7 +34,7 @@ func runAgentReportForCommand(command string, args []string, writer io.Writer) e
 		printAgentReportUsage(writer, command)
 		return nil
 	}
-	bundle, comments, err := loadAgentInputs(options.bundlePath, options.commentsPath)
+	bundle, comments, manifest, err := loadAgentInputs(options.bundlePath, options.commentsPath)
 	if err != nil {
 		return err
 	}
@@ -45,9 +45,10 @@ func runAgentReportForCommand(command string, args []string, writer io.Writer) e
 	report, err := reviewbundle.RenderReport(bundle, comments, reviewbundle.ReportOptions{
 		Format:     options.format,
 		Validation: validation,
+		Manifest:   manifest,
 	})
 	if err != nil {
-		if strings.Contains(err.Error(), "comments_sha256 mismatch") {
+		if errors.Is(err, reviewbundle.ErrStaleComments) {
 			return staleCommentsError{}
 		}
 		return err
@@ -124,24 +125,26 @@ func parseAgentReportFlags(command string, args []string) (agentReportOptions, e
 	return options, nil
 }
 
-func loadAgentInputs(bundlePath, commentsPath string) (*reviewbundle.Bundle, *reviewbundle.Comments, error) {
+func loadAgentInputs(
+	bundlePath, commentsPath string,
+) (*reviewbundle.Bundle, *reviewbundle.Comments, *reviewbundle.ScanManifest, error) {
 	commentsFile, err := os.Open(commentsPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("open comments: %w", err)
+		return nil, nil, nil, fmt.Errorf("open comments: %w", err)
 	}
 	comments, loadErr := reviewbundle.LoadComments(commentsFile)
 	closeErr := commentsFile.Close()
 	if loadErr != nil {
-		return nil, nil, loadErr
+		return nil, nil, nil, loadErr
 	}
 	if closeErr != nil {
-		return nil, nil, fmt.Errorf("close comments: %w", closeErr)
+		return nil, nil, nil, fmt.Errorf("close comments: %w", closeErr)
 	}
-	bundle, err := loadAgentBundleByID(bundlePath, comments.BundleID)
+	bundle, manifest, err := loadAgentBundleInputByID(bundlePath, comments.BundleID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return bundle, comments, nil
+	return bundle, comments, manifest, nil
 }
 
 func loadAgentBundleByID(path, bundleID string) (*reviewbundle.Bundle, error) {
@@ -191,7 +194,6 @@ func loadValidationResult(path string) (*reviewbundle.ValidationResult, error) {
 	}
 	defer file.Close()
 	decoder := json.NewDecoder(file)
-	decoder.DisallowUnknownFields()
 	var result reviewbundle.ValidationResult
 	if err := decoder.Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode validation result: %w", err)

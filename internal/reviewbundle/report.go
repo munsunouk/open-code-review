@@ -3,15 +3,22 @@ package reviewbundle
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
+)
+
+// ErrStaleComments indicates validate-comments was run against different comment bytes.
+var ErrStaleComments = errors.New(
+	"validation comments_sha256 mismatch; re-run validate-comments before report",
 )
 
 // ReportOptions controls deterministic report rendering.
 type ReportOptions struct {
 	Format     string
 	Validation *ValidationResult
+	Manifest   *ScanManifest
 }
 
 // RenderReport formats external findings without changing their meaning.
@@ -37,12 +44,11 @@ func RenderReport(bundle *Bundle, comments *Comments, options ReportOptions) ([]
 		}
 		if options.Validation.CommentsSHA256 == "" ||
 			options.Validation.CommentsSHA256 != computeCommentsSHA256(comments) {
-			return nil, fmt.Errorf(
-				"validation comments_sha256 mismatch; re-run validate-comments before report",
-			)
+			return nil, ErrStaleComments
 		}
 	}
 	sorted := sortedComments(comments)
+	reportNotices := reportScopeNotices(bundle, options.Manifest)
 	switch options.Format {
 	case "json":
 		encoded, err := json.MarshalIndent(sorted, "", "  ")
@@ -51,9 +57,9 @@ func RenderReport(bundle *Bundle, comments *Comments, options ReportOptions) ([]
 		}
 		return append(encoded, '\n'), nil
 	case "text":
-		return renderTextReport(bundle, sorted, options.Validation), nil
+		return renderTextReport(bundle, sorted, options.Validation, reportNotices), nil
 	case "", "markdown":
-		return renderMarkdownReport(bundle, sorted, options.Validation), nil
+		return renderMarkdownReport(bundle, sorted, options.Validation, reportNotices), nil
 	default:
 		return nil, fmt.Errorf("unsupported report format %q", options.Format)
 	}
@@ -94,10 +100,29 @@ func priorityRank(priority string) int {
 	}
 }
 
+func reportScopeNotices(bundle *Bundle, manifest *ScanManifest) []ProtocolNotice {
+	if manifest == nil || !manifest.Partial {
+		return nil
+	}
+	message := "scan or split manifest marked partial; some files were skipped or truncated"
+	if len(manifest.SkippedFiles) > 0 {
+		message = fmt.Sprintf(
+			"%s (%d skipped file(s))",
+			message,
+			len(manifest.SkippedFiles),
+		)
+	}
+	return []ProtocolNotice{{
+		Code:    "partial_scope",
+		Message: message,
+	}}
+}
+
 func renderMarkdownReport(
 	bundle *Bundle,
 	comments *Comments,
 	validation *ValidationResult,
+	scopeNotices []ProtocolNotice,
 ) []byte {
 	var output bytes.Buffer
 	fmt.Fprintln(&output, "# Agent Code Review")
@@ -109,9 +134,11 @@ func renderMarkdownReport(
 		bundle.Summary.ReviewableFiles,
 		bundle.Summary.TotalFiles,
 	)
+	fmt.Fprintf(&output, "- Reviewed: %d file(s)\n", comments.Summary.FilesReviewed)
 	fmt.Fprintf(&output, "- Findings: %d\n", len(comments.Comments))
 	writeMarkdownValidation(&output, validation)
 	writeMarkdownNotices(&output, "Bundle warnings", bundle.Warnings)
+	writeMarkdownNotices(&output, "Scope warnings", scopeNotices)
 	if len(comments.Comments) == 0 {
 		fmt.Fprintln(&output)
 		fmt.Fprintln(&output, "No findings.")
@@ -169,16 +196,43 @@ func writeMarkdownValidation(output *bytes.Buffer, validation *ValidationResult)
 		fmt.Fprintln(output)
 		fmt.Fprintln(output, "## Validation errors")
 		for _, notice := range validation.Errors {
-			fmt.Fprintf(output, "\n- `%s`: %s\n", notice.Code, notice.Message)
+			fmt.Fprintf(output, "\n- %s\n", formatValidationNotice(notice, true))
 		}
 	}
 	if len(validation.Warnings) > 0 {
 		fmt.Fprintln(output)
 		fmt.Fprintln(output, "## Validation warnings")
 		for _, notice := range validation.Warnings {
-			fmt.Fprintf(output, "\n- `%s`: %s\n", notice.Code, notice.Message)
+			fmt.Fprintf(output, "\n- %s\n", formatValidationNotice(notice, true))
 		}
 	}
+}
+
+func formatValidationNotice(notice ValidationNotice, markdown bool) string {
+	location := validationNoticeLocation(notice)
+	if markdown {
+		if location == "" {
+			return fmt.Sprintf("`%s`: %s", notice.Code, notice.Message)
+		}
+		return fmt.Sprintf("`%s` (%s): %s", notice.Code, location, notice.Message)
+	}
+	if location == "" {
+		return fmt.Sprintf("%s: %s", notice.Code, notice.Message)
+	}
+	return fmt.Sprintf("%s (%s): %s", notice.Code, location, notice.Message)
+}
+
+func validationNoticeLocation(notice ValidationNotice) string {
+	if notice.Path == "" && notice.CommentIndex == nil {
+		return ""
+	}
+	if notice.CommentIndex == nil {
+		return notice.Path
+	}
+	if notice.Path == "" {
+		return fmt.Sprintf("comment[%d]", *notice.CommentIndex)
+	}
+	return fmt.Sprintf("%s, comment[%d]", notice.Path, *notice.CommentIndex)
 }
 
 func writeMarkdownNotices(output *bytes.Buffer, title string, notices []ProtocolNotice) {
@@ -196,14 +250,24 @@ func renderTextReport(
 	bundle *Bundle,
 	comments *Comments,
 	validation *ValidationResult,
+	scopeNotices []ProtocolNotice,
 ) []byte {
 	var output bytes.Buffer
-	fmt.Fprintf(&output, "Agent Code Review\nBundle: %s\nFindings: %d\n", bundle.BundleID, len(comments.Comments))
+	fmt.Fprintf(
+		&output,
+		"Agent Code Review\nBundle: %s\nReviewed: %d file(s)\nFindings: %d\n",
+		bundle.BundleID,
+		comments.Summary.FilesReviewed,
+		len(comments.Comments),
+	)
 	if len(bundle.Warnings) > 0 {
 		fmt.Fprintln(&output, "Bundle warnings:")
 		for _, notice := range bundle.Warnings {
 			fmt.Fprintf(&output, "WARNING %s: %s\n", notice.Code, notice.Message)
 		}
+	}
+	for _, notice := range scopeNotices {
+		fmt.Fprintf(&output, "WARNING %s: %s\n", notice.Code, notice.Message)
 	}
 	if validation == nil {
 		fmt.Fprintln(&output, "Validation: not supplied")
@@ -212,12 +276,12 @@ func renderTextReport(
 	} else {
 		fmt.Fprintln(&output, "Validation: INVALID")
 		for _, notice := range validation.Errors {
-			fmt.Fprintf(&output, "ERROR %s: %s\n", notice.Code, notice.Message)
+			fmt.Fprintf(&output, "ERROR %s\n", formatValidationNotice(notice, false))
 		}
 	}
 	if validation != nil && len(validation.Warnings) > 0 {
 		for _, notice := range validation.Warnings {
-			fmt.Fprintf(&output, "WARNING %s: %s\n", notice.Code, notice.Message)
+			fmt.Fprintf(&output, "WARNING %s\n", formatValidationNotice(notice, false))
 		}
 	}
 	for _, comment := range comments.Comments {
@@ -233,6 +297,12 @@ func renderTextReport(
 		)
 		if comment.Recommendation != "" {
 			fmt.Fprintf(&output, "Recommendation: %s\n", comment.Recommendation)
+		}
+		if comment.ExistingCode != "" {
+			fmt.Fprintf(&output, "Existing code:\n%s\n", comment.ExistingCode)
+		}
+		if comment.SuggestionCode != "" {
+			fmt.Fprintf(&output, "Suggested code:\n%s\n", comment.SuggestionCode)
 		}
 	}
 	if len(comments.Warnings) > 0 {

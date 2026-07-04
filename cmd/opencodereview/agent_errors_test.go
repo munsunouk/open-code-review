@@ -42,7 +42,7 @@ func TestRequireValidationReportRequiresValidResult(t *testing.T) {
 	}
 }
 
-func TestLoadValidationResultRejectsUnknownFields(t *testing.T) {
+func TestLoadValidationResultIgnoresUnknownFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "validation.json")
 	if err := os.WriteFile(path, []byte(`{
 		"schema_version":"agent-review-validation/v1",
@@ -53,9 +53,12 @@ func TestLoadValidationResultRejectsUnknownFields(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := loadValidationResult(path)
-	if err == nil || !strings.Contains(err.Error(), "unknown field") {
-		t.Fatalf("loadValidationResult() error = %v, want unknown field", err)
+	result, err := loadValidationResult(path)
+	if err != nil {
+		t.Fatalf("loadValidationResult() error = %v, want success with ignored unknown field", err)
+	}
+	if result == nil || !result.Valid {
+		t.Fatalf("result = %+v, want valid result", result)
 	}
 }
 

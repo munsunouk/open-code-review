@@ -2,6 +2,7 @@ package reviewbundle
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -34,7 +35,8 @@ func TestReportMarkdownIsStableAndPriorityOrdered(t *testing.T) {
 	if strings.Index(text, "[HIGH]") > strings.Index(text, "[LOW]") {
 		t.Fatalf("report is not priority ordered:\n%s", text)
 	}
-	if !strings.Contains(text, "`main.go:3-4`") || !strings.Contains(text, "Validation: not supplied") {
+	if !strings.Contains(text, "`main.go:3-4`") || !strings.Contains(text, "Validation: not supplied") ||
+		!strings.Contains(text, "- Reviewed: 1 file(s)") {
 		t.Fatalf("report missing evidence metadata:\n%s", text)
 	}
 }
@@ -125,8 +127,8 @@ func TestReportRejectsValidationForDifferentComments(t *testing.T) {
 		renderedComments,
 		ReportOptions{Format: "markdown", Validation: validation},
 	)
-	if err == nil || !strings.Contains(err.Error(), "validation comments_sha256 mismatch") {
-		t.Fatalf("RenderReport() error = %v, want comments_sha256 mismatch", err)
+	if !errors.Is(err, ErrStaleComments) {
+		t.Fatalf("RenderReport() error = %v, want ErrStaleComments", err)
 	}
 }
 
@@ -227,5 +229,69 @@ func TestReportMarkdownEscapesHeadingInjectionInBody(t *testing.T) {
 	}
 	if !strings.Contains(text, `\# Fake section`) || !strings.Contains(text, `Recommendation: \# Also fake`) {
 		t.Fatalf("markdown report missing escaped headings:\n%s", text)
+	}
+}
+
+func TestReportMarkdownSurfacesPartialManifestScope(t *testing.T) {
+	bundle := validationBundle()
+	comments := &Comments{
+		SchemaVersion: CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       CommentsSummary{FilesReviewed: 1},
+		Comments:      []ReviewComment{},
+	}
+	manifest := &ScanManifest{
+		Partial:      true,
+		SkippedFiles: []ScanSkippedFile{{Path: "large.go", Reason: "too_large"}},
+	}
+	report, err := RenderReport(bundle, comments, ReportOptions{
+		Format:   "markdown",
+		Manifest: manifest,
+	})
+	if err != nil {
+		t.Fatalf("RenderReport() error = %v", err)
+	}
+	text := string(report)
+	if !strings.Contains(text, "Scope warnings") || !strings.Contains(text, "partial_scope") {
+		t.Fatalf("report missing partial scope warning:\n%s", text)
+	}
+}
+
+func TestReportTextIncludesCodeBlocksAndValidationLocation(t *testing.T) {
+	bundle := validationBundle()
+	index := 0
+	comments := &Comments{
+		SchemaVersion: CommentsSchemaVersion,
+		BundleID:      bundle.BundleID,
+		Summary:       CommentsSummary{FilesReviewed: 1, IssuesFound: 1},
+		Comments: []ReviewComment{{
+			Path: "main.go", StartLine: 3, EndLine: 3,
+			Priority: "high", Category: "bug", Title: "Issue",
+			Content: "content", Recommendation: "fix", Confidence: 1,
+			ExistingCode:   "old",
+			SuggestionCode: "new",
+		}},
+	}
+	validation := &ValidationResult{
+		SchemaVersion:  ValidationSchemaVersion,
+		BundleID:       bundle.BundleID,
+		CommentsSHA256: computeCommentsSHA256(comments),
+		Valid:          true,
+		Warnings: []ValidationNotice{{
+			Code: "outside_changed_hunk", Path: "main.go", CommentIndex: &index,
+			Message: "line is outside changed hunk",
+		}},
+	}
+	report, err := RenderReport(bundle, comments, ReportOptions{
+		Format: "text", Validation: validation,
+	})
+	if err != nil {
+		t.Fatalf("RenderReport() error = %v", err)
+	}
+	text := string(report)
+	if !strings.Contains(text, "Existing code:\nold") ||
+		!strings.Contains(text, "Suggested code:\nnew") ||
+		!strings.Contains(text, "main.go, comment[0]") {
+		t.Fatalf("text report missing code blocks or validation location:\n%s", text)
 	}
 }
