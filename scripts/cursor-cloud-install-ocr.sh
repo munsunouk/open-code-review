@@ -15,7 +15,7 @@
 #   OCR_FORK_URL      Git remote for clone mode (default: munsunouk fork)
 #   OCR_BRANCH        Branch to build (default: cursor-agent-adapter)
 #   OCR_REPO_DIR      Checkout root for checkout mode (default: parent of this script)
-#   OCR_INSTALL_DIR   Install directory (default: /usr/local/bin if writable, else $(go env GOPATH)/bin)
+#   OCR_INSTALL_DIR   Install directory (default: /usr/local/bin if writable, else $HOME/.local/bin)
 set -euo pipefail
 
 OCR_FORK_URL="${OCR_FORK_URL:-https://github.com/munsunouk/open-code-review.git}"
@@ -35,7 +35,7 @@ default_install_dir() {
 		printf '/usr/local/bin'
 		return
 	fi
-	printf '%s/bin' "$(go env GOPATH)"
+	printf '%s/.local/bin' "$HOME"
 }
 
 OCR_INSTALL_DIR="${OCR_INSTALL_DIR:-$(default_install_dir)}"
@@ -47,6 +47,11 @@ ensure_go() {
 ensure_path() {
 	mkdir -p "$OCR_INSTALL_DIR"
 	export PATH="$OCR_INSTALL_DIR:$PATH"
+	local profile="${HOME}/.bashrc"
+	local path_line="export PATH=\"$OCR_INSTALL_DIR:\$PATH\""
+	if { [ ! -e "$profile" ] || [ -w "$profile" ]; } && ! grep -Fqx "$path_line" "$profile" 2>/dev/null; then
+		printf '\n%s\n' "$path_line" >>"$profile"
+	fi
 }
 
 build_ocr() {
@@ -64,8 +69,8 @@ install_from_checkout() {
 	log "building ocr from checkout at $repo_root (branch: $(git -C "$repo_root" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown))"
 
 	if [ -n "${OCR_BRANCH:-}" ]; then
-		git -C "$repo_root" fetch origin "$OCR_BRANCH" --depth 1 2>/dev/null || true
-		git -C "$repo_root" checkout "$OCR_BRANCH" 2>/dev/null || true
+		git -C "$repo_root" fetch origin "$OCR_BRANCH" --depth 1
+		git -C "$repo_root" checkout -B "$OCR_BRANCH" FETCH_HEAD
 	fi
 
 	build_ocr "$repo_root"

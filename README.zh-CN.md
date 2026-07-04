@@ -286,7 +286,7 @@ OCR 可以无缝集成到 AI 编程 Agent 中，作为斜杠命令使用，在 A
 npx skills add alibaba/open-code-review --skill open-code-review
 ```
 
-此命令从 [skills 注册表](skills/open-code-review/SKILL.md)安装 `open-code-review` skill，教会你的编程 Agent 如何调用 `ocr` 进行代码审查、按优先级分类问题，并可选择性地应用修复。
+此命令从 [skills 注册表](skills/open-code-review/SKILL.md)安装 `open-code-review` skill。host agent 负责审查推理；OCR 提供 deterministic `ocr agent prepare`、context、validation 和 report 工具。host-agent 路径不需要 OCR LLM provider 或 API key。legacy `ocr review` 和 `ocr scan` 仅在明确请求时使用。
 
 #### 方式二：作为 Claude Code Plugin 安装
 
@@ -297,7 +297,7 @@ npx skills add alibaba/open-code-review --skill open-code-review
 /plugin install open-code-review@open-code-review
 ```
 
-此命令注册 `/open-code-review:review` 斜杠命令，运行 OCR 并自动过滤和修复问题。
+此命令注册用于 host-agent workflow 的 `/open-code-review:review` 斜杠命令：`ocr agent prepare` → review → `validate-comments` → `report`。active agent 负责推理和报告，OCR 提供 deterministic evidence。只有在明确请求时才执行 fix。
 
 #### 方式三：作为 Codex Plugin 安装
 

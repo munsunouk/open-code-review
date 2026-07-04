@@ -286,7 +286,7 @@ OCR легко встраивается в ИИ-агентов для разра
 npx skills add alibaba/open-code-review --skill open-code-review
 ```
 
-Это установит скилл `open-code-review` из [реестра скиллов](skills/open-code-review/SKILL.md), который объясняет вашему кодинг-агенту, как вызывать `ocr` для код-ревью, классифицировать найденные проблемы по приоритету и при необходимости применять исправления.
+Это установит скилл `open-code-review` из [реестра скиллов](skills/open-code-review/SKILL.md). Host agent отвечает за reasoning ревью, а OCR предоставляет deterministic tooling: `ocr agent prepare`, context, validation и report. Для host-agent пути не нужны OCR LLM provider или API key. Legacy-команды `ocr review` и `ocr scan` используются только по явному запросу.
 
 #### Вариант 2: установка как плагин Claude Code
 
@@ -297,7 +297,7 @@ npx skills add alibaba/open-code-review --skill open-code-review
 /plugin install open-code-review@open-code-review
 ```
 
-Это зарегистрирует slash-команду `/open-code-review:review`, которая запускает OCR и автоматически фильтрует и исправляет найденные проблемы.
+Это зарегистрирует slash-команду `/open-code-review:review` для host-agent workflow: `ocr agent prepare` → review → `validate-comments` → `report`. Active agent выполняет reasoning и reporting, а OCR предоставляет deterministic evidence. Fix выполняется только по явному запросу.
 
 #### Вариант 3: установка как плагин Codex
 

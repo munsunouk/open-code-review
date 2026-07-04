@@ -286,7 +286,7 @@ OCRはスラッシュコマンドとしてAIコーディングエージェント
 npx skills add alibaba/open-code-review --skill open-code-review
 ```
 
-これにより、[skillsレジストリ](skills/open-code-review/SKILL.md)から`open-code-review`スキルがインストールされ、コーディングエージェントにコードレビューのための`ocr`の呼び出し方、優先度による問題の分類、必要に応じた修正の適用を教えます。
+これにより、[skillsレジストリ](skills/open-code-review/SKILL.md)から`open-code-review`スキルがインストールされます。レビューの推論はhost agentが担当し、OCRはdeterministicな`ocr agent prepare`、context、validation、report toolingを提供します。host-agent経路ではOCR LLM providerやAPI keyは不要です。legacyの`ocr review`と`ocr scan`は明示的に要求された場合のみ使います。
 
 #### オプション2: Claude Codeプラグインとしてインストール
 
@@ -297,7 +297,7 @@ npx skills add alibaba/open-code-review --skill open-code-review
 /plugin install open-code-review@open-code-review
 ```
 
-これにより`/open-code-review:review`スラッシュコマンドが登録され、OCRを実行して問題を自動的にフィルタリング・修正します。
+これによりhost-agent workflow用の`/open-code-review:review`スラッシュコマンドが登録されます: `ocr agent prepare` → review → `validate-comments` → `report`。active agentが推論とレポートを担当し、OCRはdeterministic evidenceを提供します。fixは明示的に要求された場合のみ実行します。
 
 #### オプション3: Codexプラグインとしてインストール
 
