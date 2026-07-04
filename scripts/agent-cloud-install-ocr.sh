@@ -16,7 +16,7 @@
 #   OCR_REPO_DIR        Checkout root for checkout mode (default: parent of this script)
 #   OCR_INSTALL_DIR     Install directory (default: /usr/local/bin if writable, else $HOME/.local/bin)
 #   OCR_HOST_LABEL      Display label for logs/errors (default: Agent Cloud)
-#   OCR_INSTALLER_NAME  Log prefix for compatibility wrappers (default: agent-cloud-install-ocr)
+#   OCR_INSTALLER_NAME  Log prefix override (default: agent-cloud-install-ocr)
 set -euo pipefail
 
 OCR_FORK_URL="${OCR_FORK_URL:-https://github.com/munsunouk/open-code-review.git}"

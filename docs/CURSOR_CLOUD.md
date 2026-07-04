@@ -107,7 +107,6 @@ Code review: run `ocr agent prepare --format json`, review, then
 
 ## 스크립트 위치
 
-Canonical: [`scripts/agent-cloud-install-ocr.sh`](../scripts/agent-cloud-install-ocr.sh)
-Compatibility wrappers: [`scripts/cursor-cloud-install-ocr.sh`](../scripts/cursor-cloud-install-ocr.sh), [`scripts/codex-cloud-install-ocr.sh`](../scripts/codex-cloud-install-ocr.sh)
+[`scripts/agent-cloud-install-ocr.sh`](../scripts/agent-cloud-install-ocr.sh)
 
 환경 변수: `OCR_SOURCE`, `OCR_FORK_URL`, `OCR_BRANCH`, `OCR_REPO_DIR`, `OCR_INSTALL_DIR`.
