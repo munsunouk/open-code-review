@@ -36,7 +36,7 @@ function extractPostReviewScript(workflowPath) {
     }
 
     const script = block.join("\n");
-    if (script.includes("/tmp/ocr-result.json")) {
+    if (script.includes("/tmp/comments.json")) {
       return script;
     }
   }
@@ -47,8 +47,8 @@ function extractPostReviewScript(workflowPath) {
 function mockFs(resultText, stderrText) {
   return {
     readFileSync(file) {
-      if (file === "/tmp/ocr-result.json") return resultText;
-      if (file === "/tmp/ocr-stderr.log") return stderrText;
+      if (file === "/tmp/comments.json") return resultText;
+      if (file === "/tmp/agent-stderr.log") return stderrText;
       throw new Error(`unexpected read: ${file}`);
     },
   };
