@@ -12,9 +12,9 @@ Comment with trigger keyword ↗
 
 1. When a PR is opened, the workflow triggers (uses `pull_request_target` for fork secret access)
 2. Alternatively, when a comment containing `/open-code-review` or `@open-code-review` is posted on a PR, the workflow triggers
-3. It installs OCR via `npm install -g @alibaba-group/open-code-review`
-4. Runs `ocr review --from origin/<base> --to <head_sha> --format json` to analyze the diff (uses commit SHA to support fork PRs)
-5. Parses the JSON output and posts inline review comments on the PR using GitHub's Pull Request Review API
+3. It builds `ocr` from a **trusted checkout** with Go (see `install-ocr-from-source.sh`)
+4. Runs the **host-agent** pipeline: `prepare-agent-bundle.sh` → `run-host-agent-review.sh` (`generate-agent-comments.js` uses CI LLM secrets to author `agent-review-comments/v1`, then `validate-comments` / `report`)
+5. Parses the comments JSON and posts inline review comments on the PR
 
 ## Setup
 
