@@ -15,7 +15,7 @@
   "scripts": {
     "postinstall": "node scripts/install.js",
     "test:cloud-installers": "node scripts/cloud-installers.test.js",
-    "test:github-actions": "node scripts/github-actions/post-review-comments.test.js"
+    "test:github-actions": "node scripts/github-actions/generate-agent-comments.test.js && node scripts/github-actions/post-review-comments.test.js"
   },
   "repository": {
     "type": "git",

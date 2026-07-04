@@ -19,6 +19,8 @@ function main() {
   assert.match(genericScript, /OCR_INSTALLER_NAME="\$\{OCR_INSTALLER_NAME:-agent-cloud-install-ocr\}"/);
   assert.match(genericScript, /go build -o "\$OCR_INSTALL_DIR\/ocr" \.\/cmd\/opencodereview/);
   assert.match(genericScript, /git clone --depth 1 --branch "\$OCR_BRANCH" "\$OCR_FORK_URL" "\$tmpdir"/);
+  assert.match(genericScript, /OCR_CLONE_TMPDIR="\$tmpdir"/);
+  assert.match(genericScript, /root="\$PWD"/);
   assert.doesNotMatch(genericScript, /Compatibility wrapper/);
 }
 

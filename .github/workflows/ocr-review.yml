@@ -83,6 +83,12 @@ jobs:
           fetch-depth: 0  # Full history needed for merge-base diff
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Checkout trusted helper source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          path: .ocr-trusted
+
       - name: Mark repository as safe directory
         run: git config --global --replace-all safe.directory '*'
 
@@ -121,7 +127,7 @@ jobs:
           OCR_LLM_MODEL: ${{ secrets.OCR_LLM_MODEL }}
           OCR_LLM_USE_ANTHROPIC: ${{ secrets.OCR_LLM_USE_ANTHROPIC }}
         run: |
-          node scripts/github-actions/generate-agent-comments.js \
+          node .ocr-trusted/scripts/github-actions/generate-agent-comments.js \
             --bundle /tmp/bundle.json \
             --output /tmp/comments.json
 

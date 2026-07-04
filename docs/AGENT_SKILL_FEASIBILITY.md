@@ -24,7 +24,7 @@
 host-agent 主导路径
 用户 → host agent → ocr agent prepare → review bundle
              → host agent 自己评审、判断和修改
-             → ocr agent validate-comments（可选）
+             → ocr agent validate-comments
 ```
 
 最终职责边界：
@@ -290,12 +290,14 @@ ocr agent prepare \
 # 校验 host agent 生成的评论
 ocr agent validate-comments \
   --bundle /tmp/ocr-review-bundle.json \
-  --comments /tmp/agent-review-comments.json
+  --comments /tmp/agent-review-comments.json \
+  --output /tmp/validation.json
 
 # 格式化已通过校验的评论
 ocr agent report \
   --bundle /tmp/ocr-review-bundle.json \
   --comments /tmp/agent-review-comments.json \
+  --validation /tmp/validation.json \
   --format markdown
 ```
 
@@ -819,8 +821,8 @@ host agent diff-review workflow
 
 ```bash
 ocr agent context read|find|diff|search
-ocr agent validate-comments --bundle ... --comments ...
-ocr agent report --bundle ... --comments ... --format markdown
+ocr agent validate-comments --bundle ... --comments ... --output ...
+ocr agent report --bundle ... --comments ... --validation ... --format markdown
 ```
 
 host-agent workflow 必须实现：

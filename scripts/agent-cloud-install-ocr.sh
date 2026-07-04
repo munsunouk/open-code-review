@@ -82,7 +82,8 @@ install_from_checkout() {
 install_from_clone() {
 	local tmpdir
 	tmpdir="$(mktemp -d)"
-	trap 'rm -rf "$tmpdir"' EXIT
+	OCR_CLONE_TMPDIR="$tmpdir"
+	trap 'rm -rf "$OCR_CLONE_TMPDIR"' EXIT
 
 	log "cloning $OCR_FORK_URL (branch: $OCR_BRANCH)"
 	git clone --depth 1 --branch "$OCR_BRANCH" "$OCR_FORK_URL" "$tmpdir"
@@ -111,7 +112,14 @@ main() {
 
 	case "$source" in
 	checkout)
-		local root="${OCR_REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+		local root
+		if [ -n "${OCR_REPO_DIR:-}" ]; then
+			root="$OCR_REPO_DIR"
+		elif [ -f "./cmd/opencodereview/main.go" ]; then
+			root="$PWD"
+		else
+			root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+		fi
 		install_from_checkout "$root"
 		;;
 	clone)
