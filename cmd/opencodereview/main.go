@@ -24,7 +24,9 @@ func main() {
 
 	if err := dispatch(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		if errors.As(err, &validationFailedError{}) {
+		if errors.As(err, &validationFailedError{}) ||
+			errors.As(err, &invalidValidationReportError{}) ||
+			errors.As(err, &staleCommentsError{}) {
 			os.Exit(2)
 		}
 		os.Exit(1)

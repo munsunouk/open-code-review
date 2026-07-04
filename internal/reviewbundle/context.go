@@ -393,6 +393,9 @@ func (service *ContextService) ready(ctx context.Context) error {
 	service.readyMu.Lock()
 	defer service.readyMu.Unlock()
 	if service.readyOk {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		return nil
 	}
 	if service.bundle == nil {

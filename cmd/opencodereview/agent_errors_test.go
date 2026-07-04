@@ -16,7 +16,7 @@ func TestAgentErrorStrings(t *testing.T) {
 		t.Fatalf("validationFailedError string = %q", validationErr.Error())
 	}
 	var reportErr invalidValidationReportError
-	if reportErr.Error() != "validation result is invalid" {
+	if reportErr.Error() != "validation result is invalid; re-run validate-comments" {
 		t.Fatalf("invalidValidationReportError string = %q", reportErr.Error())
 	}
 }

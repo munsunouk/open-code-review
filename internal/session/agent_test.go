@@ -129,8 +129,10 @@ func TestAgentRecorderDoesNotAppendEventsAfterFinalize(t *testing.T) {
 	if err := recorder.Finalize("sha256:bundle", AgentEvent{FilesReviewed: []string{"main.go"}}); err != nil {
 		t.Fatalf("Finalize() error = %v", err)
 	}
-	if err := recorder.Record("context.read", "sha256:bundle", AgentEvent{ContextCalls: 1}); err != nil {
-		t.Fatalf("Record() error = %v", err)
+	if err := recorder.Record("context.read", "sha256:bundle", AgentEvent{ContextCalls: 1}); err == nil {
+		t.Fatal("Record() after Finalize succeeded, want error")
+	} else if !strings.Contains(err.Error(), "already finalized") {
+		t.Fatalf("Record() error = %v, want already finalized", err)
 	}
 	records := readAgentRecords(t, recorder.Path())
 	if records[len(records)-1]["type"] != "session_end" {

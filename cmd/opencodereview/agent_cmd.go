@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/open-code-review/open-code-review/internal/config/rules"
@@ -434,17 +435,33 @@ func recordAgentEvent(
 }
 
 func writePrivateFile(path string, content []byte) error {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".ocr-output-*")
 	if err != nil {
-		return fmt.Errorf("open bundle output %s: %w", path, err)
+		return fmt.Errorf("create temp output: %w", err)
 	}
-	if _, err := file.Write(content); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("write bundle output %s: %w", path, err)
+	tmpPath := tmp.Name()
+	removeTemp := true
+	defer func() {
+		if removeTemp {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("chmod temp output: %w", err)
 	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("close bundle output %s: %w", path, err)
+	if _, err := tmp.Write(content); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write temp output: %w", err)
 	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close temp output: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("rename output %s: %w", path, err)
+	}
+	removeTemp = false
 	return nil
 }
 

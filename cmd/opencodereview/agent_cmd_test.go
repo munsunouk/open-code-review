@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -543,8 +544,12 @@ func TestAgentReportRejectsReformattedValidatedComments(t *testing.T) {
 		"--validation", validationPath,
 		"--format", "markdown",
 	}, &bytes.Buffer{})
-	if err == nil || !strings.Contains(err.Error(), "comments_sha256 mismatch") {
-		t.Fatalf("report error = %v, want comments_sha256 mismatch", err)
+	if err == nil {
+		t.Fatal("report with reformatted comments succeeded, want error")
+	}
+	var staleErr staleCommentsError
+	if !errors.As(err, &staleErr) {
+		t.Fatalf("report error = %T(%v), want staleCommentsError", err, err)
 	}
 }
 

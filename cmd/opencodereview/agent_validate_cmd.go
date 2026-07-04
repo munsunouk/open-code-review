@@ -103,7 +103,7 @@ func runAgentValidateCommentsForCommand(
 		}
 	}
 	if !result.Valid {
-		return validationFailedError{}
+		return validationFailedError{summary: formatValidationFailureSummary(&result)}
 	}
 	return nil
 }

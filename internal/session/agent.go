@@ -135,7 +135,7 @@ func (recorder *AgentRecorder) Path() string {
 func (recorder *AgentRecorder) Record(event string, bundleID string, details AgentEvent) error {
 	record := agentEventRecord(recorder, "agent_event", bundleID, details)
 	record["event"] = event
-	return recorder.write(record, true)
+	return recorder.write(record, true, true)
 }
 
 // Finalize appends a viewer-compatible session end record.
@@ -144,7 +144,7 @@ func (recorder *AgentRecorder) Finalize(bundleID string, details AgentEvent) err
 	record["duration_seconds"] = time.Since(recorder.started).Seconds()
 	record["files_reviewed"] = details.FilesReviewed
 	record["llm_failures"] = 0
-	return recorder.write(record, true)
+	return recorder.write(record, true, false)
 }
 
 func agentEventRecord(
@@ -272,7 +272,7 @@ func (recorder *AgentRecorder) writeExclusiveStart(record map[string]any) error 
 	return file.Close()
 }
 
-func (recorder *AgentRecorder) write(record map[string]any, skipIfEnded bool) error {
+func (recorder *AgentRecorder) write(record map[string]any, skipIfEnded, rejectIfEnded bool) error {
 	recorder.mu.Lock()
 	defer recorder.mu.Unlock()
 	encoded, err := json.Marshal(record)
@@ -306,6 +306,9 @@ func (recorder *AgentRecorder) write(record map[string]any, skipIfEnded bool) er
 			}
 			if closeErr != nil {
 				return fmt.Errorf("close agent session: %w", closeErr)
+			}
+			if rejectIfEnded {
+				return fmt.Errorf("agent session already finalized")
 			}
 			return nil
 		}

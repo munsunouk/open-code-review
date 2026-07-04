@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/open-code-review/open-code-review/internal/reviewbundle"
@@ -46,6 +47,9 @@ func runAgentReportForCommand(command string, args []string, writer io.Writer) e
 		Validation: validation,
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "comments_sha256 mismatch") {
+			return staleCommentsError{}
+		}
 		return err
 	}
 	if options.outputPath != "" {

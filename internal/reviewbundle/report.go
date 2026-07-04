@@ -37,7 +37,9 @@ func RenderReport(bundle *Bundle, comments *Comments, options ReportOptions) ([]
 		}
 		if options.Validation.CommentsSHA256 == "" ||
 			options.Validation.CommentsSHA256 != computeCommentsSHA256(comments) {
-			return nil, fmt.Errorf("validation comments_sha256 mismatch")
+			return nil, fmt.Errorf(
+				"validation comments_sha256 mismatch; re-run validate-comments before report",
+			)
 		}
 	}
 	sorted := sortedComments(comments)
